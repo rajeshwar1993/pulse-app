@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/config/supabase_config.dart';
 import 'features/splash/splash_screen.dart';
+import 'features/auth/auth_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,15 +19,46 @@ void main() async {
   runApp(const ProviderScope(child: PulseApp()));
 }
 
+// GoRouter configuration
+final _router = GoRouter(
+  initialLocation: '/',
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const SplashScreen(),
+    ),
+    GoRoute(
+      path: '/auth',
+      builder: (context, state) => const AuthScreen(),
+    ),
+    GoRoute(
+      path: '/profile-setup',
+      builder: (context, state) => const Scaffold(
+        body: Center(
+          child: Text('Profile Setup - Coming Soon'),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/dashboard',
+      builder: (context, state) => const Scaffold(
+        body: Center(
+          child: Text('Dashboard - Coming Soon'),
+        ),
+      ),
+    ),
+  ],
+);
+
 class PulseApp extends StatelessWidget {
   const PulseApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Pulse',
       theme: AppTheme.lightTheme,
-      home: const SplashScreen(),
+      routerConfig: _router,
       debugShowCheckedModeBanner: false,
     );
   }

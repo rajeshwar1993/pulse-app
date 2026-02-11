@@ -1,8 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/colors.dart';
+import '../../core/config/supabase_config.dart';
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthAndNavigate();
+  }
+
+  Future<void> _checkAuthAndNavigate() async {
+    // Wait a bit for splash animation
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (!mounted) return;
+
+    // Check if user is authenticated
+    final user = SupabaseConfig.client.auth.currentUser;
+
+    if (user == null) {
+      // Not authenticated, go to auth screen
+      context.go('/auth');
+    } else {
+      // Authenticated, check if profile exists
+      final response = await SupabaseConfig.client
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      if (response == null) {
+        // No profile, go to profile setup
+        context.go('/profile-setup');
+      } else {
+        // Profile exists, go to dashboard
+        context.go('/dashboard');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,12 +79,9 @@ class SplashScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Foundation Setup Complete',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.slate500,
-                  ),
+            const SizedBox(height: 24),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.teal),
             ),
           ],
         ),
