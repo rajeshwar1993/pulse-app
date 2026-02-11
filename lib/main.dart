@@ -6,6 +6,7 @@ import 'core/theme/app_theme.dart';
 import 'core/config/supabase_config.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/auth/auth_screen.dart';
+import 'features/profile/profile_setup_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,11 +34,7 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/profile-setup',
-      builder: (context, state) => const Scaffold(
-        body: Center(
-          child: Text('Profile Setup - Coming Soon'),
-        ),
-      ),
+      builder: (context, state) => const ProfileSetupScreen(),
     ),
     GoRoute(
       path: '/dashboard',
