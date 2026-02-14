@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/colors.dart';
 import '../../core/config/supabase_config.dart';
 
@@ -11,10 +13,56 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  StreamSubscription<AuthState>? _authSubscription;
+
   @override
   void initState() {
     super.initState();
     _checkAuthAndNavigate();
+    _setupAuthListener();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _setupAuthListener() {
+    // Listen for auth state changes (e.g., when deep link authenticates user)
+    _authSubscription = SupabaseConfig.client.auth.onAuthStateChange.listen(
+      (data) {
+        final event = data.event;
+        if (event == AuthChangeEvent.signedIn) {
+          // User just signed in via deep link, navigate appropriately
+          _navigateBasedOnProfile();
+        }
+      },
+    );
+  }
+
+  Future<void> _navigateBasedOnProfile() async {
+    if (!mounted) return;
+
+    final user = SupabaseConfig.client.auth.currentUser;
+    if (user == null) return;
+
+    // Check if profile exists
+    final response = await SupabaseConfig.client
+        .from('profiles')
+        .select()
+        .eq('id', user.id)
+        .maybeSingle();
+
+    if (!mounted) return;
+
+    if (response == null) {
+      // No profile, go to profile setup
+      context.go('/profile-setup');
+    } else {
+      // Profile exists, go to dashboard
+      context.go('/dashboard');
+    }
   }
 
   Future<void> _checkAuthAndNavigate() async {
@@ -30,22 +78,8 @@ class _SplashScreenState extends State<SplashScreen> {
       // Not authenticated, go to auth screen
       context.go('/auth');
     } else {
-      // Authenticated, check if profile exists
-      final response = await SupabaseConfig.client
-          .from('profiles')
-          .select()
-          .eq('id', user.id)
-          .maybeSingle();
-
-      if (!mounted) return;
-
-      if (response == null) {
-        // No profile, go to profile setup
-        context.go('/profile-setup');
-      } else {
-        // Profile exists, go to dashboard
-        context.go('/dashboard');
-      }
+      // Authenticated, navigate based on profile
+      await _navigateBasedOnProfile();
     }
   }
 

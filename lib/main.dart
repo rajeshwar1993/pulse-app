@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/config/supabase_config.dart';
+import 'core/services/deep_link_service.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/profile/profile_setup_screen.dart';
@@ -16,6 +17,9 @@ void main() async {
   
   // Initialize Supabase
   await SupabaseConfig.initialize();
+  
+  // Initialize deep link handling
+  await DeepLinkService().initialize();
   
   runApp(const ProviderScope(child: PulseApp()));
 }
