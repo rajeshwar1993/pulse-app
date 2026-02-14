@@ -43,26 +43,14 @@ class DeepLinkService {
   /// Handle auth callback from magic link or OAuth
   Future<void> _handleAuthCallback(Uri uri) async {
     try {
-      // Extract the auth code or token from the URL
-      final code = uri.queryParameters['code'];
-      final accessToken = uri.queryParameters['access_token'];
-      final refreshToken = uri.queryParameters['refresh_token'];
-
-      if (code != null) {
-        // OAuth flow - exchange code for session
-        print('Exchanging code for session...');
-        // The Supabase SDK should handle this automatically
-        // when the deep link is opened
-      } else if (accessToken != null && refreshToken != null) {
-        // Direct token flow - set session
-        print('Setting session from tokens...');
-        await SupabaseConfig.client.auth.setSession(
-          accessToken: accessToken,
-          refreshToken: refreshToken,
-        );
-      } else {
-        print('No auth code or tokens found in deep link');
-      }
+      // The Supabase SDK automatically handles auth callbacks from deep links
+      // when the app is opened with the auth URL.
+      // We just need to log that we received it.
+      print('Auth callback received: $uri');
+      print('Query parameters: ${uri.queryParameters}');
+      
+      // The auth state listener in SplashScreen will handle navigation
+      // once the SDK completes the authentication
     } catch (e) {
       print('Error handling auth callback: $e');
     }

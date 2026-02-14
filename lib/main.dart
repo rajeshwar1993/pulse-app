@@ -27,6 +27,16 @@ void main() async {
 // GoRouter configuration
 final _router = GoRouter(
   initialLocation: '/',
+  redirect: (context, state) {
+    // Ignore deep link URLs - let DeepLinkService handle them
+    final uri = state.uri;
+    if (uri.scheme == 'pulse') {
+      // This is a deep link, don't try to route it
+      // Return null to stay on current route
+      return null;
+    }
+    return null; // No redirect needed
+  },
   routes: [
     GoRoute(
       path: '/',
