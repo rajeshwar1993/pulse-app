@@ -31,6 +31,9 @@ dependencies:
   # WebView
   webview_flutter: ^4.7.0
 
+  # Deep Linking
+  app_links: ^3.4.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
