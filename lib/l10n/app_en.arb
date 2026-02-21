@@ -26,24 +26,34 @@
     "description": "Label for the email sign-in button"
   },
 
+  "signIn": "Sign In",
+  "@signIn": {
+    "description": "Label for the sign in button"
+  },
+
+  "signUp": "Sign Up",
+  "@signUp": {
+    "description": "Label for the sign up button"
+  },
+
   "enterYourEmail": "Enter your email",
   "@enterYourEmail": {
     "description": "Hint text for the email input field"
   },
 
+  "enterYourPassword": "Enter your password",
+  "@enterYourPassword": {
+    "description": "Hint text for the password input field"
+  },
+
+  "confirmYourPassword": "Confirm your password",
+  "@confirmYourPassword": {
+    "description": "Hint text for the confirm password input field"
+  },
+
   "cancel": "Cancel",
   "@cancel": {
     "description": "Label for the cancel button"
-  },
-
-  "sendMagicLink": "Send Magic Link",
-  "@sendMagicLink": {
-    "description": "Label for the send magic link button"
-  },
-
-  "checkEmailForMagicLink": "Check your email for the magic link!",
-  "@checkEmailForMagicLink": {
-    "description": "Success message after sending a magic link"
   },
 
   "pleaseEnterYourEmail": "Please enter your email",
@@ -54,6 +64,31 @@
   "pleaseEnterValidEmail": "Please enter a valid email",
   "@pleaseEnterValidEmail": {
     "description": "Validation error when email format is invalid"
+  },
+
+  "pleaseEnterYourPassword": "Please enter your password",
+  "@pleaseEnterYourPassword": {
+    "description": "Validation error when password field is empty"
+  },
+
+  "passwordTooShort": "Password must be at least 6 characters",
+  "@passwordTooShort": {
+    "description": "Validation error when password is too short"
+  },
+
+  "passwordsDoNotMatch": "Passwords do not match",
+  "@passwordsDoNotMatch": {
+    "description": "Validation error when password and confirm password do not match"
+  },
+
+  "invalidCredentials": "Invalid email or password",
+  "@invalidCredentials": {
+    "description": "Error message for wrong email or password"
+  },
+
+  "userAlreadyExists": "An account with this email already exists. Try signing in instead.",
+  "@userAlreadyExists": {
+    "description": "Error message when trying to sign up with an existing email"
   },
 
   "failedSignInGoogle": "Failed to sign in with Google: {error}",
@@ -67,15 +102,36 @@
     }
   },
 
-  "failedSendMagicLink": "Failed to send magic link: {error}",
-  "@failedSendMagicLink": {
-    "description": "Error message when sending magic link fails",
+  "failedSignIn": "Failed to sign in: {error}",
+  "@failedSignIn": {
+    "description": "Generic error message when sign in fails",
     "placeholders": {
       "error": {
         "type": "String",
         "example": "Network error"
       }
     }
+  },
+
+  "failedSignUp": "Failed to sign up: {error}",
+  "@failedSignUp": {
+    "description": "Generic error message when sign up fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Network error"
+      }
+    }
+  },
+
+  "dontHaveAccount": "Don't have an account? Sign Up",
+  "@dontHaveAccount": {
+    "description": "Toggle text to switch from sign in to sign up mode"
+  },
+
+  "alreadyHaveAccount": "Already have an account? Sign In",
+  "@alreadyHaveAccount": {
+    "description": "Toggle text to switch from sign up to sign in mode"
   },
 
   "setUpYourProfile": "Set up your profile",

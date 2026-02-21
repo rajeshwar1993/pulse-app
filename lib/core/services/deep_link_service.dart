@@ -40,7 +40,7 @@ class DeepLinkService {
 
   /// Handle incoming deep link
   /// Supported formats:
-  /// - pulse://auth/callback (OAuth/Magic Link)
+  /// - pulse://auth/callback (OAuth callback)
   /// - pulse://invite?code=ABC12345
   /// - pulse://invite/ABC12345
   Future<void> _handleDeepLink(Uri uri) async {
@@ -64,7 +64,7 @@ class DeepLinkService {
     }
   }
 
-  /// Handle auth callback from magic link or OAuth
+  /// Handle auth callback from OAuth
   Future<void> _handleAuthCallback(Uri uri) async {
     try {
       // The Supabase SDK automatically handles auth callbacks from deep links

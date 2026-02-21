@@ -124,29 +124,41 @@ abstract class AppLocalizations {
   /// **'Sign in with Email'**
   String get signInWithEmail;
 
+  /// Label for the sign in button
+  ///
+  /// In en, this message translates to:
+  /// **'Sign In'**
+  String get signIn;
+
+  /// Label for the sign up button
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Up'**
+  String get signUp;
+
   /// Hint text for the email input field
   ///
   /// In en, this message translates to:
   /// **'Enter your email'**
   String get enterYourEmail;
 
+  /// Hint text for the password input field
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your password'**
+  String get enterYourPassword;
+
+  /// Hint text for the confirm password input field
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm your password'**
+  String get confirmYourPassword;
+
   /// Label for the cancel button
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
-
-  /// Label for the send magic link button
-  ///
-  /// In en, this message translates to:
-  /// **'Send Magic Link'**
-  String get sendMagicLink;
-
-  /// Success message after sending a magic link
-  ///
-  /// In en, this message translates to:
-  /// **'Check your email for the magic link!'**
-  String get checkEmailForMagicLink;
 
   /// Validation error when email field is empty
   ///
@@ -160,17 +172,65 @@ abstract class AppLocalizations {
   /// **'Please enter a valid email'**
   String get pleaseEnterValidEmail;
 
+  /// Validation error when password field is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your password'**
+  String get pleaseEnterYourPassword;
+
+  /// Validation error when password is too short
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 6 characters'**
+  String get passwordTooShort;
+
+  /// Validation error when password and confirm password do not match
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
+  String get passwordsDoNotMatch;
+
+  /// Error message for wrong email or password
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid email or password'**
+  String get invalidCredentials;
+
+  /// Error message when trying to sign up with an existing email
+  ///
+  /// In en, this message translates to:
+  /// **'An account with this email already exists. Try signing in instead.'**
+  String get userAlreadyExists;
+
   /// Error message when Google sign-in fails
   ///
   /// In en, this message translates to:
   /// **'Failed to sign in with Google: {error}'**
   String failedSignInGoogle(String error);
 
-  /// Error message when sending magic link fails
+  /// Generic error message when sign in fails
   ///
   /// In en, this message translates to:
-  /// **'Failed to send magic link: {error}'**
-  String failedSendMagicLink(String error);
+  /// **'Failed to sign in: {error}'**
+  String failedSignIn(String error);
+
+  /// Generic error message when sign up fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to sign up: {error}'**
+  String failedSignUp(String error);
+
+  /// Toggle text to switch from sign in to sign up mode
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t have an account? Sign Up'**
+  String get dontHaveAccount;
+
+  /// Toggle text to switch from sign up to sign in mode
+  ///
+  /// In en, this message translates to:
+  /// **'Already have an account? Sign In'**
+  String get alreadyHaveAccount;
 
   /// Title for the profile setup screen
   ///

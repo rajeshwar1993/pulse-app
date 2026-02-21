@@ -1,8 +1,10 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../config/supabase_config.dart';
 
 class AuthService {
-  final _supabase = SupabaseConfig.client;
+  final SupabaseClient _supabase;
+
+  AuthService(this._supabase);
 
   /// Sign in with Google OAuth
   Future<bool> signInWithGoogle() async {
@@ -17,13 +19,31 @@ class AuthService {
     }
   }
 
-  /// Sign in with Email Magic Link
-  Future<void> signInWithMagicLink(String email) async {
+  /// Sign up with email and password
+  Future<AuthResponse> signUp(String email, String password) async {
     try {
-      await _supabase.auth.signInWithOtp(
+      final response = await _supabase.auth.signUp(
         email: email,
-        emailRedirectTo: 'pulse://auth/callback',
+        password: password,
       );
+      return response;
+    } on AuthException {
+      rethrow;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Sign in with email and password
+  Future<AuthResponse> signInWithPassword(String email, String password) async {
+    try {
+      final response = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      return response;
+    } on AuthException {
+      rethrow;
     } catch (e) {
       rethrow;
     }
@@ -44,3 +64,7 @@ class AuthService {
   /// Auth state changes stream
   Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
 }
+
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService(Supabase.instance.client);
+});

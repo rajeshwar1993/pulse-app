@@ -24,16 +24,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signInWithEmail => 'Sign in with Email';
 
   @override
+  String get signIn => 'Sign In';
+
+  @override
+  String get signUp => 'Sign Up';
+
+  @override
   String get enterYourEmail => 'Enter your email';
 
   @override
+  String get enterYourPassword => 'Enter your password';
+
+  @override
+  String get confirmYourPassword => 'Confirm your password';
+
+  @override
   String get cancel => 'Cancel';
-
-  @override
-  String get sendMagicLink => 'Send Magic Link';
-
-  @override
-  String get checkEmailForMagicLink => 'Check your email for the magic link!';
 
   @override
   String get pleaseEnterYourEmail => 'Please enter your email';
@@ -42,14 +48,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pleaseEnterValidEmail => 'Please enter a valid email';
 
   @override
+  String get pleaseEnterYourPassword => 'Please enter your password';
+
+  @override
+  String get passwordTooShort => 'Password must be at least 6 characters';
+
+  @override
+  String get passwordsDoNotMatch => 'Passwords do not match';
+
+  @override
+  String get invalidCredentials => 'Invalid email or password';
+
+  @override
+  String get userAlreadyExists =>
+      'An account with this email already exists. Try signing in instead.';
+
+  @override
   String failedSignInGoogle(String error) {
     return 'Failed to sign in with Google: $error';
   }
 
   @override
-  String failedSendMagicLink(String error) {
-    return 'Failed to send magic link: $error';
+  String failedSignIn(String error) {
+    return 'Failed to sign in: $error';
   }
+
+  @override
+  String failedSignUp(String error) {
+    return 'Failed to sign up: $error';
+  }
+
+  @override
+  String get dontHaveAccount => 'Don\'t have an account? Sign Up';
+
+  @override
+  String get alreadyHaveAccount => 'Already have an account? Sign In';
 
   @override
   String get setUpYourProfile => 'Set up your profile';
