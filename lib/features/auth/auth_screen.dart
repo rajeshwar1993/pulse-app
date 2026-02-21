@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/colors.dart';
 import '../../core/services/auth_service.dart';
 import '../../l10n/app_localizations.dart';
-import 'widgets/auth_button.dart';
+import '../../shared/widgets/widgets.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -21,8 +21,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _isLoading = false;
   bool _showEmailForm = false;
   bool _isSignUpMode = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
   String? _errorMessage;
 
   @override
@@ -242,95 +240,43 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
                 // Error Message
                 if (_errorMessage != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.error.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.error),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.error_outline, color: AppColors.error),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(color: AppColors.error),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  PulseErrorBanner(message: _errorMessage!),
                   const SizedBox(height: 24),
                 ],
 
                 // Google Sign In Button
-                AuthButton(
+                PulseButton.secondary(
                   onPressed: _isLoading ? null : _signInWithGoogle,
                   icon: Icons.g_mobiledata,
                   label: l10n.signInWithGoogle,
-                  backgroundColor: Colors.white,
-                  textColor: AppColors.slate900,
                 ),
                 const SizedBox(height: 16),
 
                 // Email Sign In/Up Button or Form
                 if (!_showEmailForm)
-                  AuthButton(
+                  PulseButton.primary(
                     onPressed: _isLoading
                         ? null
                         : () => setState(() => _showEmailForm = true),
                     icon: Icons.email_outlined,
                     label: l10n.signInWithEmail,
-                    backgroundColor: AppColors.teal,
-                    textColor: Colors.white,
                   ),
 
                 // Email + Password Form
                 if (_showEmailForm) ...[
-                  // Email field
-                  TextField(
+                  PulseTextField(
                     controller: _emailController,
-                    decoration: InputDecoration(
-                      hintText: l10n.enterYourEmail,
-                      prefixIcon: const Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
+                    hintText: l10n.enterYourEmail,
+                    prefixIcon: Icons.email_outlined,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                     enabled: !_isLoading,
                   ),
                   const SizedBox(height: 12),
 
-                  // Password field
-                  TextField(
+                  PulsePasswordField(
                     controller: _passwordController,
-                    decoration: InputDecoration(
-                      hintText: l10n.enterYourPassword,
-                      prefixIcon: const Icon(Icons.lock_outlined),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () {
-                          setState(
-                              () => _obscurePassword = !_obscurePassword);
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    obscureText: _obscurePassword,
+                    hintText: l10n.enterYourPassword,
                     textInputAction: _isSignUpMode
                         ? TextInputAction.next
                         : TextInputAction.done,
@@ -342,29 +288,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   // Confirm Password field (sign up only)
                   if (_isSignUpMode) ...[
                     const SizedBox(height: 12),
-                    TextField(
+                    PulsePasswordField(
                       controller: _confirmPasswordController,
-                      decoration: InputDecoration(
-                        hintText: l10n.confirmYourPassword,
-                        prefixIcon: const Icon(Icons.lock_outlined),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscureConfirmPassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () {
-                            setState(() => _obscureConfirmPassword =
-                                !_obscureConfirmPassword);
-                          },
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
-                      obscureText: _obscureConfirmPassword,
+                      hintText: l10n.confirmYourPassword,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _submitEmailForm(),
                       enabled: !_isLoading,
@@ -375,42 +301,28 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   // Cancel + Submit buttons
                   Row(
                     children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _isLoading
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _showEmailForm = false;
-                                    _isSignUpMode = false;
-                                    _emailController.clear();
-                                    _passwordController.clear();
-                                    _confirmPasswordController.clear();
-                                    _errorMessage = null;
-                                  });
-                                },
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(l10n.cancel),
-                        ),
+                      PulseButton.outline(
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                setState(() {
+                                  _showEmailForm = false;
+                                  _isSignUpMode = false;
+                                  _emailController.clear();
+                                  _passwordController.clear();
+                                  _confirmPasswordController.clear();
+                                  _errorMessage = null;
+                                });
+                              },
+                        label: l10n.cancel,
+                        flex: 1,
                       ),
                       const SizedBox(width: 12),
-                      Expanded(
+                      PulseButton.primary(
+                        onPressed: _isLoading ? null : _submitEmailForm,
+                        icon: _isSignUpMode ? Icons.person_add : Icons.login,
+                        label: _isSignUpMode ? l10n.signUp : l10n.signIn,
                         flex: 2,
-                        child: AuthButton(
-                          onPressed: _isLoading ? null : _submitEmailForm,
-                          icon: _isSignUpMode
-                              ? Icons.person_add
-                              : Icons.login,
-                          label:
-                              _isSignUpMode ? l10n.signUp : l10n.signIn,
-                          backgroundColor: AppColors.teal,
-                          textColor: Colors.white,
-                        ),
                       ),
                     ],
                   ),

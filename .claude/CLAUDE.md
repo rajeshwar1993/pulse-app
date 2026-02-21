@@ -1,384 +1,286 @@
-# pulse-app Technical Reference
+# pulse-app — Flutter Mobile Shell
 
-Flutter mobile application (native shell + WebView for dashboard screens).
+Flutter native shell for the Pulse app. Handles splash, authentication, profile setup, and hosts the Next.js dashboard inside a WebView.
 
-## Project Type & Technology Stack
+## Tech Stack
 
-**Framework**: Flutter 3.10.8+
-**Language**: Dart SDK ^3.10.8
-**State Management**: flutter_riverpod ^2.5.1
-**Routing**: go_router ^14.0.0
-**Backend**: supabase_flutter ^2.5.0
-**WebView**: webview_flutter ^4.7.0
-**Deep Linking**: app_links ^3.4.5
-**Environment**: flutter_dotenv ^5.1.0
-**UI**: google_fonts ^6.2.1
-**Testing**: mockito ^5.4.4, build_runner ^2.4.9
+| Concern | Package | Version |
+|---------|---------|---------|
+| Framework | Flutter | 3.10.8+ |
+| State | flutter_riverpod | ^2.5.1 |
+| Routing | go_router | ^14.0.0 |
+| Backend | supabase_flutter | ^2.5.0 |
+| WebView | webview_flutter | ^4.7.0 |
+| Deep Links | app_links | ^3.4.5 |
+| Env | flutter_dotenv | ^5.1.0 |
+| Fonts | google_fonts | ^6.2.1 |
+| Testing | mockito, build_runner | ^5.4.4 |
 
 ## Project Structure
 
 ```
 lib/
 ├── core/
-│   ├── config/         # Supabase initialization
-│   ├── constants/      # Avatar gallery, app constants
-│   ├── models/         # Data models (Profile, Connection, InviteCode)
-│   ├── services/       # Business logic services
-│   └── theme/          # App theme, colors
+│   ├── config/            # SupabaseConfig (init, env, webViewUrl)
+│   ├── constants/         # AvatarGallery (DiceBear PNG URLs)
+│   ├── models/            # Profile, Connection, InviteCode
+│   ├── services/          # AuthService, ProfileService, PulseService,
+│   │                      #   ConnectionService, DeepLinkService, LocaleService
+│   └── theme/
+│       ├── colors.dart    # AppColors — all design token colors
+│       └── app_theme.dart # AppTheme.lightTheme
 ├── features/
-│   ├── auth/           # Authentication screens & widgets
-│   ├── profile/        # Profile setup screen
-│   ├── splash/         # Splash screen & launch orchestration
-│   └── webview/        # WebView wrapper for dashboard
-└── main.dart           # App entry point, GoRouter config
+│   ├── auth/              # AuthScreen (email/password + Google sign-in)
+│   ├── profile/           # ProfileSetupScreen (name + avatar)
+│   ├── splash/            # SplashScreen (launch orchestration + WebView host)
+│   └── webview/           # PulseWebView (WebView wrapper, FlutterBridge)
+├── shared/
+│   └── widgets/           # *** Reusable widget library (see below) ***
+├── l10n/                  # Localization (ARB files, AppLocalizations)
+└── main.dart              # App entry, GoRouter config, error handlers
 ```
 
-## Critical Files
+## Design System
 
-**Entry Point**
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/main.dart` - App initialization, GoRouter config, ProviderScope
+**Theme:** Mindful Glassmorphism
+**Reference:** `the-office/projects/pulse/design/design-tokens.md`
 
-**Core Services**
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/core/services/pulse_service.dart` - Daily pulse check-in logic (Pulse Day = 4 AM reset)
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/core/services/auth_service.dart` - Supabase authentication wrapper
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/core/services/profile_service.dart` - Profile CRUD operations
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/core/services/connection_service.dart` - Connection management
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/core/services/deep_link_service.dart` - Handle pulse:// deep links
+### Colors (`lib/core/theme/colors.dart`)
 
-**Core Config & Models**
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/core/config/supabase_config.dart` - Supabase.initialize()
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/core/models/profile.dart` - Profile data model
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/core/models/connection.dart` - Connection data model
+All colors are defined as `AppColors` constants. **Never use raw hex values in widgets.**
 
-**Feature Screens**
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/features/splash/splash_screen.dart` - Launch orchestration (auth check, pulse send, routing)
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/features/auth/auth_screen.dart` - Email OTP authentication
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/features/profile/profile_setup_screen.dart` - First-time profile creation
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/features/webview/pulse_webview.dart` - WebView wrapper (loads pulse-web dashboard)
+| Token | Constant | Hex | Usage |
+|-------|----------|-----|-------|
+| teal-300 | `AppColors.teal` | #62B1AD | Primary brand, buttons, focus |
+| rose-300 | `AppColors.rose` | #F28C8C | Accent color |
+| offWhite | `AppColors.offWhite` | #F8FAFC | Screen backgrounds |
+| slate-200 | `AppColors.slate200` | #E2E8F0 | Borders |
+| slate-300 | `AppColors.slate300` | #CBD5E1 | Input borders |
+| slate-500 | `AppColors.slate500` | #64748B | Body text |
+| slate-900 | `AppColors.slate900` | #0F172A | Headings |
+| error | `AppColors.error` | #EF4444 | Error states |
+| success | `AppColors.success` | #10B981 | Success states |
 
-**Theme**
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/core/theme/app_theme.dart` - MaterialApp theme definition
-- `/Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app/lib/core/theme/colors.dart` - Color constants (Pulse Purple, Off White, etc.)
+Full spectrum available: `teal50`–`teal500`, `rose50`–`rose500`, `slate50`–`slate900`.
 
-## Development Setup
+### Component Tokens
 
-**Prerequisites**
-- Flutter SDK 3.10.8+
-- Dart SDK 3.10.8+
-- Xcode (iOS) or Android Studio (Android)
+| Component | Background | Border | Radius | Padding |
+|-----------|-----------|--------|--------|---------|
+| Button (primary) | teal | — | 8px | 12px 24px |
+| Button (secondary) | transparent | teal 1px | 8px | 12px 24px |
+| Input | white | slate-300 1px | 8px | 12px 16px |
+| Card | white | slate-200 1px | 12px | 24px |
+| Glass Card | white@10% + blur(16) | white@20% | 16px | 24px |
 
-**Installation**
-```bash
-cd /Users/rajeshwarrudra/Documents/DevWork/Pulse-workspace/pulse-app
-flutter pub get
-```
+## Shared Widget Library
 
-**Environment Configuration**
-Create `.env` in project root:
-```
-SUPABASE_URL=<your_supabase_url>
-SUPABASE_ANON_KEY=<your_supabase_anon_key>
-```
+**Import:** `import '../../shared/widgets/widgets.dart';`
 
-**Run on Device**
-```bash
-flutter run
-# Or specific device
-flutter run -d <device_id>
-```
+All screens MUST use these shared widgets instead of inline Material widgets. This ensures design token consistency.
 
-## Coding Patterns & Conventions
+### PulseButton
 
-**Service Layer Pattern**
-- All services in `lib/core/services/`
-- Services use Riverpod providers
-- Services accept `SupabaseClient` in constructor
-- Example: `PulseService(SupabaseClient _supabase)`
-
-**Riverpod Providers**
 ```dart
-// Provider definition (bottom of service file)
-final pulseServiceProvider = Provider<PulseService>((ref) {
-  final supabase = Supabase.instance.client;
-  return PulseService(supabase);
-});
+// Primary — teal background, white text
+PulseButton.primary(
+  onPressed: () {},
+  label: 'Continue',
+  icon: Icons.arrow_forward,  // optional
+  isLoading: false,           // shows spinner
+  flex: 1,                    // for use in Row
+)
 
-// Usage in widgets
-class MyWidget extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final service = ref.read(pulseServiceProvider);
-    // Use service...
+// Secondary — white background, teal border
+PulseButton.secondary(onPressed: () {}, label: 'Google Sign In')
+
+// Outline — transparent, slate border
+PulseButton.outline(onPressed: () {}, label: 'Cancel')
+```
+
+### PulseTextField
+
+```dart
+PulseTextField(
+  controller: _controller,
+  hintText: 'Enter your name',
+  prefixIcon: Icons.person,     // optional
+  maxLength: 50,                // optional
+  suffixText: '12/50',          // optional
+  counterText: '',              // hide default counter
+  onChanged: (v) {},            // optional
+  enabled: true,
+)
+```
+
+### PulsePasswordField
+
+```dart
+PulsePasswordField(
+  controller: _passwordController,
+  hintText: 'Enter your password',
+  textInputAction: TextInputAction.done,
+  onSubmitted: (_) => _submit(),
+  enabled: true,
+)
+```
+
+Built-in visibility toggle icon. Wraps PulseTextField internally.
+
+### PulseErrorBanner
+
+```dart
+if (errorMessage != null) ...[
+  PulseErrorBanner(message: errorMessage!),
+  const SizedBox(height: 24),
+]
+```
+
+Red-tinted banner with error icon. Use for form/screen-level errors.
+
+### PulseAvatar
+
+```dart
+// Gallery selection (64px, selection border)
+PulseAvatar.selectable(
+  imageUrl: url,
+  selected: url == _selectedUrl,
+  onTap: () => setState(() => _selectedUrl = url),
+)
+
+// Large preview (120px)
+PulseAvatar.preview(imageUrl: _selectedUrl!)
+
+// Basic usage
+PulseAvatar(imageUrl: url, size: 48)
+```
+
+Built-in loading spinner and error icon for network images.
+
+### PulseCard / PulseGlassCard
+
+```dart
+PulseCard(child: Text('Content'))
+PulseGlassCard(child: Text('Glass effect'))
+```
+
+### Adding New Shared Widgets
+
+1. Create `lib/shared/widgets/pulse_<name>.dart`
+2. Follow design tokens from `the-office/projects/pulse/design/design-tokens.md`
+3. Use `AppColors` constants — never hardcode hex values
+4. Add export to `lib/shared/widgets/widgets.dart`
+5. Prefix class name with `Pulse` (e.g., `PulseChip`, `PulseDialog`)
+
+## Coding Conventions
+
+### Service Layer
+
+All services live in `lib/core/services/` and follow this pattern:
+
+```dart
+class MyService {
+  final SupabaseClient _supabase;
+  MyService(this._supabase);
+
+  Future<bool> doAction() async {
+    try {
+      // ...
+      return true;
+    } catch (e) {
+      debugPrint('MyService.doAction: $e');
+      return false;
+    }
   }
 }
-```
 
-**Widget Patterns**
-- Use `StatelessWidget` for static UI
-- Use `ConsumerWidget` (Riverpod) when accessing providers
-- Use `ConsumerStatefulWidget` when needing both state and providers
-- Prefer composition over inheritance
-
-**Async Patterns**
-- Services return `Future<bool>` for success/failure operations
-- Services return `Future<Model?>` for data fetching (null = not found)
-- Use `async/await` consistently
-- Graceful error handling (print errors, return safe defaults)
-
-**Navigation**
-- Use GoRouter (`context.go('/path')`, `context.push('/path')`)
-- Routes defined in `main.dart` (_router)
-- Deep links handled by DeepLinkService (pulse:// scheme)
-
-**Data Models**
-- Models in `lib/core/models/`
-- Use `fromJson` factory constructors
-- Use `toJson` methods for serialization
-- Immutable classes with `const` constructors where possible
-
-## State Management
-
-**Approach**: Riverpod (Provider pattern)
-
-**Provider Types Used**
-- `Provider` - For services (PulseService, AuthService, ProfileService)
-- `StateProvider` - For simple reactive state
-- `FutureProvider` - For async data loading
-- `StreamProvider` - For realtime Supabase subscriptions (future use)
-
-**Global State**
-- Services are singleton providers (scoped to ProviderScope in main.dart)
-- Access via `ref.read()` (one-time read) or `ref.watch()` (reactive)
-
-**Local State**
-- Use `StatefulWidget` or `ConsumerStatefulWidget`
-- Prefer lifting state up to parent when needed by multiple children
-
-## Testing Approach
-
-**Test Framework**: flutter_test (built-in)
-**Mocking**: mockito ^5.4.4
-**Code Generation**: build_runner ^2.4.9
-
-**Test Structure**
-```
-test/
-├── core/
-│   └── services/    # Service unit tests
-├── features/
-│   └── widgets/     # Widget tests
-└── ...
-```
-
-**Running Tests**
-```bash
-# All tests
-flutter test
-
-# Specific test file
-flutter test test/core/services/pulse_service_test.dart
-
-# With coverage
-flutter test --coverage
-```
-
-**Mock Generation**
-```bash
-# Generate mocks (when adding @GenerateMocks annotations)
-flutter pub run build_runner build
-```
-
-**Widget Testing Pattern**
-```dart
-testWidgets('description', (WidgetTester tester) async {
-  await tester.pumpWidget(
-    ProviderScope(
-      child: MaterialApp(home: MyWidget()),
-    ),
-  );
-
-  expect(find.text('Expected Text'), findsOneWidget);
+final myServiceProvider = Provider<MyService>((ref) {
+  return MyService(Supabase.instance.client);
 });
 ```
 
-**Service Testing Pattern**
+Rules:
+- Constructor injection of `SupabaseClient` (testable)
+- Riverpod `Provider` defined at bottom of file
+- Use `debugPrint()`, never `print()` (stripped in release)
+- Return `Future<bool>` for success/failure, `Future<Model?>` for data
+
+### Widget Patterns
+
+- `ConsumerWidget` when accessing providers
+- `ConsumerStatefulWidget` when needing both state and providers
+- Always use shared widgets from `widgets.dart` barrel
+- Screen backgrounds: `AppColors.offWhite`
+
+### Navigation
+
 ```dart
-// Mock Supabase client with mockito
-@GenerateMocks([SupabaseClient, GoTrueClient, PostgrestQueryBuilder])
-void main() {
-  late MockSupabaseClient mockSupabase;
-  late PulseService service;
-
-  setUp(() {
-    mockSupabase = MockSupabaseClient();
-    service = PulseService(mockSupabase);
-  });
-
-  test('hasPulsedToday returns true when pulse exists', () async {
-    // Setup mocks, test service methods
-  });
-}
+context.go('/');              // Replace route
+context.go('/profile-setup'); // Replace route
+context.push('/details');     // Push onto stack
 ```
 
-## Build & Development Commands
+Routes defined in `main.dart` via GoRouter.
 
-**Development**
-```bash
-# Run app in debug mode
-flutter run
+### i18n
 
-# Hot reload (press 'r' in running app)
-# Hot restart (press 'R' in running app)
-
-# Run on specific device
-flutter devices              # List available devices
-flutter run -d <device_id>   # Run on specific device
-
-# Clean build
-flutter clean && flutter pub get && flutter run
-```
-
-**Testing**
-```bash
-flutter test                 # Run all tests
-flutter test --coverage      # Run with coverage report
-flutter analyze              # Static analysis (linting)
-```
-
-**Code Generation**
-```bash
-# Generate mocks for tests
-flutter pub run build_runner build
-
-# Watch mode (auto-regenerate on changes)
-flutter pub run build_runner watch
-```
-
-**Build Release**
-```bash
-# iOS
-flutter build ios --release
-
-# Android
-flutter build apk --release
-flutter build appbundle --release
-```
-
-**Dependencies**
-```bash
-flutter pub get              # Install dependencies
-flutter pub upgrade          # Upgrade dependencies
-flutter pub outdated         # Check for outdated packages
-```
-
-## Integration Points
-
-**pulse-app → pulse-supabase**
-- Supabase client initialized in `SupabaseConfig.initialize()`
-- Environment variables from `.env` file
-- Direct database access via `supabase_flutter` package
-- Tables: `profiles`, `daily_pulses`, `connections`, `invite_codes`
-
-**pulse-app → pulse-web (WebView Bridge)**
-- WebView loads `http://localhost:3000/dashboard` (dev) or production URL
-- JavaScript channel: `FlutterBridge`
-- Message protocol: JSON strings with `{ type: string, payload: any }` structure
-- Flutter → Web: `webViewController.runJavaScript('FlutterBridge.postMessage(...)')`
-- Web → Flutter: `window.FlutterBridge.postMessage(...)` handled by JavaScriptChannel
-
-**Deep Links**
-- Scheme: `pulse://`
-- Example: `pulse://invite?code=ABC123`
-- Handled by DeepLinkService via app_links package
-- Routes to appropriate screens in GoRouter
-
-## Common Code Patterns
-
-**Service Method Example**
 ```dart
-Future<bool> sendPulse() async {
-  try {
-    final user = _supabase.auth.currentUser;
-    if (user == null) throw Exception('No authenticated user');
+import '../../l10n/app_localizations.dart';
 
-    await _supabase.from('daily_pulses').insert({
-      'user_id': user.id,
-      'status': 'active',
-    });
-
-    return true;
-  } catch (e) {
-    print('Error sending pulse: $e');
-    return false;
-  }
-}
+final l10n = AppLocalizations.of(context);
+Text(l10n.signIn)
 ```
 
-**Consumer Widget Pattern**
-```dart
-class MyScreen extends ConsumerWidget {
-  const MyScreen({super.key});
+Do NOT use `package:flutter_gen/...` import path. Use relative `l10n/app_localizations.dart`.
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final service = ref.read(myServiceProvider);
+### Models
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Title')),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () async {
-            await service.doSomething();
-          },
-          child: const Text('Action'),
-        ),
-      ),
-    );
-  }
-}
+- `fromJson` factory constructor, `toJson()` method
+- `copyWith()` for immutable updates
+- `==`, `hashCode`, `toString()` overrides
+- Located in `lib/core/models/`
+
+## Environment
+
+`.env` file at project root:
+```
+SUPABASE_URL=<url>
+SUPABASE_ANON_KEY=<key>
+WEBVIEW_URL=http://localhost:3000/appview/dashboard   # optional, has default
 ```
 
-**Navigation Pattern**
-```dart
-// Push to new route
-context.push('/profile-setup');
+`SupabaseConfig` guards `dotenv.isInitialized` so tests don't crash.
 
-// Replace current route
-context.go('/dashboard');
+## Commands
 
-// Go back
-context.pop();
-
-// With parameters
-context.push('/details', extra: {'id': '123'});
+```bash
+flutter pub get                # Install deps
+flutter run                    # Debug run
+flutter test                   # All tests
+flutter test --coverage        # Coverage report
+flutter analyze                # Static analysis (must be 0 issues)
+dart run build_runner build    # Generate mocks
 ```
 
-**Supabase Query Pattern**
-```dart
-// Fetch single record
-final response = await _supabase
-    .from('profiles')
-    .select()
-    .eq('id', userId)
-    .single();
+## WebView Bridge
 
-// Fetch with filter
-final response = await _supabase
-    .from('daily_pulses')
-    .select('id')
-    .eq('user_id', userId)
-    .gte('created_at', startDate.toIso8601String())
-    .count(CountOption.exact);
+- WebView loads URL from `SupabaseConfig.webViewUrl`
+- Session injection: cookies + localStorage via `jsonEncode()` (no raw string interpolation)
+- Message protocol: `{ "type": "ready" | "navigation" | ..., "payload": ... }`
+- Messages parsed with `jsonDecode()`, not string matching
+- `FlutterBridge` JavaScript channel for Web → Flutter communication
 
-// Insert record
-await _supabase.from('profiles').insert({
-  'id': userId,
-  'display_name': displayName,
-});
+## Testing
 
-// Update record
-await _supabase
-    .from('profiles')
-    .update({'display_name': newName})
-    .eq('id', userId);
-```
+- Tests in `test/` mirroring `lib/` structure
+- Mock Supabase with `@GenerateMocks` + mockito
+- Widget tests wrap in `ProviderScope(child: MaterialApp(home: ...))`
+- `SupabaseConfig` has `dotenv.isInitialized` guard for test safety
+
+## Lint Rules
+
+`analysis_options.yaml` enables:
+- `avoid_print` (use `debugPrint`)
+- `prefer_const_constructors`
+- `prefer_const_declarations`
+- `use_build_context_synchronously`

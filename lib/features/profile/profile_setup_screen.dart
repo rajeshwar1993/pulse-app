@@ -5,6 +5,7 @@ import '../../core/theme/colors.dart';
 import '../../core/constants/avatar_gallery.dart';
 import '../../core/services/profile_service.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/widgets.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -32,14 +33,15 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     final offset = now.timeZoneOffset;
     final hours = offset.inHours;
     final minutes = offset.inMinutes.remainder(60);
-    
+
     // Format as UTC offset (e.g., "UTC+05:30")
     final sign = hours >= 0 ? '+' : '';
     return 'UTC$sign$hours:${minutes.abs().toString().padLeft(2, '0')}';
   }
 
   bool get _isValid {
-    return _nameController.text.trim().length >= 2 && _selectedAvatarUrl != null;
+    return _nameController.text.trim().length >= 2 &&
+        _selectedAvatarUrl != null;
   }
 
   Future<void> _createProfile() async {
@@ -59,7 +61,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       );
 
       if (mounted) {
-        // Navigate to dashboard
         context.go('/');
       }
     } catch (e) {
@@ -95,26 +96,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           children: [
             // Error Message
             if (_errorMessage != null) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.error),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: AppColors.error),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: const TextStyle(color: AppColors.error),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              PulseErrorBanner(message: _errorMessage!),
               const SizedBox(height: 24),
             ],
 
@@ -126,19 +108,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   ),
             ),
             const SizedBox(height: 8),
-            TextField(
+            PulseTextField(
               controller: _nameController,
-              decoration: InputDecoration(
-                hintText: l10n.enterYourName,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                suffixText: '${_nameController.text.length}/50',
-                counterText: '',
-              ),
+              hintText: l10n.enterYourName,
               maxLength: 50,
+              suffixText: '${_nameController.text.length}/50',
+              counterText: '',
               onChanged: (_) => setState(() {}),
               enabled: !_isLoading,
             ),
@@ -163,46 +138,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               itemCount: avatarUrls.length,
               itemBuilder: (context, index) {
                 final url = avatarUrls[index];
-                final isSelected = url == _selectedAvatarUrl;
-
-                return GestureDetector(
+                return PulseAvatar.selectable(
+                  imageUrl: url,
+                  selected: url == _selectedAvatarUrl,
                   onTap: _isLoading
                       ? null
                       : () => setState(() => _selectedAvatarUrl = url),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: isSelected ? AppColors.teal : AppColors.slate200,
-                        width: isSelected ? 3 : 1,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.network(
-                        url,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
-                              strokeWidth: 2,
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(
-                            child: Icon(Icons.error_outline, size: 24),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
                 );
               },
             ),
@@ -218,57 +159,16 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               ),
               const SizedBox(height: 16),
               Center(
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.teal, width: 3),
-                    borderRadius: BorderRadius.circular(16),
-                    color: Colors.white,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(13),
-                    child: Image.network(
-                      _selectedAvatarUrl!,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
+                child: PulseAvatar.preview(imageUrl: _selectedAvatarUrl!),
               ),
               const SizedBox(height: 24),
             ],
 
             // Continue Button
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _isValid && !_isLoading ? _createProfile : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.teal,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppColors.slate200,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Text(
-                        l10n.continueButton,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-              ),
+            PulseButton.primary(
+              onPressed: _isValid && !_isLoading ? _createProfile : null,
+              label: l10n.continueButton,
+              isLoading: _isLoading,
             ),
           ],
         ),
