@@ -45,9 +45,19 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
+  patrol: ^4.1.1
   flutter_lints: ^6.0.0
   mockito: ^5.4.4
   build_runner: ^2.4.9
+
+patrol:
+  app_name: Pulse
+  android:
+    package_name: com.pulse.pulse_app
+  ios:
+    bundle_id: com.pulse.pulseApp
 
 flutter:
   generate: true
