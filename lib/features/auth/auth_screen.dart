@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/colors.dart';
 import '../../core/services/auth_service.dart';
+import '../../l10n/app_localizations.dart';
 import 'widgets/auth_button.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
@@ -34,9 +35,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       await _authService.signInWithGoogle();
       // Navigation will be handled by auth state listener
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to sign in with Google: ${e.toString()}';
-      });
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        setState(() {
+          _errorMessage = l10n.failedSignInGoogle(e.toString());
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -45,15 +49,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _signInWithEmail() async {
+    final l10n = AppLocalizations.of(context);
+
     if (_emailController.text.trim().isEmpty) {
-      setState(() => _errorMessage = 'Please enter your email');
+      setState(() => _errorMessage = l10n.pleaseEnterYourEmail);
       return;
     }
 
     // Basic email validation
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(_emailController.text.trim())) {
-      setState(() => _errorMessage = 'Please enter a valid email');
+      setState(() => _errorMessage = l10n.pleaseEnterValidEmail);
       return;
     }
 
@@ -64,17 +70,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
     try {
       await _authService.signInWithMagicLink(_emailController.text.trim());
-      
+
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Check your email for the magic link!'),
+            content: Text(l10n.checkEmailForMagicLink),
             backgroundColor: AppColors.success,
             duration: const Duration(seconds: 5),
           ),
         );
-        
+
         // Reset form
         setState(() {
           _showEmailInput = false;
@@ -82,9 +89,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         });
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to send magic link: ${e.toString()}';
-      });
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        setState(() {
+          _errorMessage = l10n.failedSendMagicLink(e.toString());
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -94,6 +104,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: AppColors.offWhite,
       body: SafeArea(
@@ -121,7 +133,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
                 // Title
                 Text(
-                  'Pulse',
+                  l10n.appTitle,
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                         color: AppColors.teal,
                         fontWeight: FontWeight.bold,
@@ -131,7 +143,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
                 // Tagline
                 Text(
-                  'Effortless peace of mind',
+                  l10n.tagline,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: AppColors.slate500,
                       ),
@@ -168,7 +180,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 AuthButton(
                   onPressed: _isLoading ? null : _signInWithGoogle,
                   icon: Icons.g_mobiledata,
-                  label: 'Sign in with Google',
+                  label: l10n.signInWithGoogle,
                   backgroundColor: Colors.white,
                   textColor: AppColors.slate900,
                 ),
@@ -181,7 +193,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         ? null
                         : () => setState(() => _showEmailInput = true),
                     icon: Icons.email_outlined,
-                    label: 'Sign in with Email',
+                    label: l10n.signInWithEmail,
                     backgroundColor: AppColors.teal,
                     textColor: Colors.white,
                   ),
@@ -191,7 +203,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   TextField(
                     controller: _emailController,
                     decoration: InputDecoration(
-                      hintText: 'Enter your email',
+                      hintText: l10n.enterYourEmail,
                       prefixIcon: const Icon(Icons.email_outlined),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -224,7 +236,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text('Cancel'),
+                          child: Text(l10n.cancel),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -233,7 +245,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         child: AuthButton(
                           onPressed: _isLoading ? null : _signInWithEmail,
                           icon: Icons.send,
-                          label: 'Send Magic Link',
+                          label: l10n.sendMagicLink,
                           backgroundColor: AppColors.teal,
                           textColor: Colors.white,
                         ),

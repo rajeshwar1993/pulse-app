@@ -1,0 +1,136 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Pulse",
+  "@appTitle": {
+    "description": "The application title"
+  },
+
+  "tagline": "Effortless peace of mind",
+  "@tagline": {
+    "description": "App tagline shown on the auth screen"
+  },
+
+  "dashboardComingSoon": "Dashboard - Coming Soon",
+  "@dashboardComingSoon": {
+    "description": "Placeholder text for the dashboard route"
+  },
+
+  "signInWithGoogle": "Sign in with Google",
+  "@signInWithGoogle": {
+    "description": "Label for the Google sign-in button"
+  },
+
+  "signInWithEmail": "Sign in with Email",
+  "@signInWithEmail": {
+    "description": "Label for the email sign-in button"
+  },
+
+  "enterYourEmail": "Enter your email",
+  "@enterYourEmail": {
+    "description": "Hint text for the email input field"
+  },
+
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Label for the cancel button"
+  },
+
+  "sendMagicLink": "Send Magic Link",
+  "@sendMagicLink": {
+    "description": "Label for the send magic link button"
+  },
+
+  "checkEmailForMagicLink": "Check your email for the magic link!",
+  "@checkEmailForMagicLink": {
+    "description": "Success message after sending a magic link"
+  },
+
+  "pleaseEnterYourEmail": "Please enter your email",
+  "@pleaseEnterYourEmail": {
+    "description": "Validation error when email field is empty"
+  },
+
+  "pleaseEnterValidEmail": "Please enter a valid email",
+  "@pleaseEnterValidEmail": {
+    "description": "Validation error when email format is invalid"
+  },
+
+  "failedSignInGoogle": "Failed to sign in with Google: {error}",
+  "@failedSignInGoogle": {
+    "description": "Error message when Google sign-in fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Network error"
+      }
+    }
+  },
+
+  "failedSendMagicLink": "Failed to send magic link: {error}",
+  "@failedSendMagicLink": {
+    "description": "Error message when sending magic link fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Network error"
+      }
+    }
+  },
+
+  "setUpYourProfile": "Set up your profile",
+  "@setUpYourProfile": {
+    "description": "Title for the profile setup screen"
+  },
+
+  "displayName": "Display Name",
+  "@displayName": {
+    "description": "Label for the display name field"
+  },
+
+  "enterYourName": "Enter your name",
+  "@enterYourName": {
+    "description": "Hint text for the name input field"
+  },
+
+  "chooseYourAvatar": "Choose your avatar",
+  "@chooseYourAvatar": {
+    "description": "Label for the avatar selection section"
+  },
+
+  "selectedAvatar": "Selected Avatar",
+  "@selectedAvatar": {
+    "description": "Label for the selected avatar preview"
+  },
+
+  "continueButton": "Continue",
+  "@continueButton": {
+    "description": "Label for the continue button"
+  },
+
+  "failedCreateProfile": "Failed to create profile: {error}",
+  "@failedCreateProfile": {
+    "description": "Error message when profile creation fails",
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "Network error"
+      }
+    }
+  },
+
+  "failedLoadDashboard": "Failed to load Dashboard",
+  "@failedLoadDashboard": {
+    "description": "Error title when WebView fails to load"
+  },
+
+  "unknownErrorOccurred": "Unknown error occurred",
+  "@unknownErrorOccurred": {
+    "description": "Fallback error message"
+  },
+
+  "retry": "Retry",
+  "@retry": {
+    "description": "Label for the retry button"
+  }
+}

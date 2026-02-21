@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/colors.dart';
 import '../../core/constants/avatar_gallery.dart';
 import '../../core/services/profile_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -62,9 +63,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         context.go('/dashboard');
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to create profile: ${e.toString()}';
-      });
+      if (mounted) {
+        final l10n = AppLocalizations.of(context);
+        setState(() {
+          _errorMessage = l10n.failedCreateProfile(e.toString());
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -74,12 +78,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final avatarUrls = AvatarGallery.getAvatarUrls();
 
     return Scaffold(
       backgroundColor: AppColors.offWhite,
       appBar: AppBar(
-        title: const Text('Set up your profile'),
+        title: Text(l10n.setUpYourProfile),
         backgroundColor: AppColors.offWhite,
         elevation: 0,
       ),
@@ -115,7 +120,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
             // Display Name
             Text(
-              'Display Name',
+              l10n.displayName,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -124,7 +129,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             TextField(
               controller: _nameController,
               decoration: InputDecoration(
-                hintText: 'Enter your name',
+                hintText: l10n.enterYourName,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -141,7 +146,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
             // Avatar Gallery
             Text(
-              'Choose your avatar',
+              l10n.chooseYourAvatar,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -206,7 +211,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             // Selected Avatar Preview
             if (_selectedAvatarUrl != null) ...[
               Text(
-                'Selected Avatar',
+                l10n.selectedAvatar,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -256,9 +261,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text(
-                        'Continue',
-                        style: TextStyle(
+                    : Text(
+                        l10n.continueButton,
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                         ),

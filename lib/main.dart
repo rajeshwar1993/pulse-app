@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/config/supabase_config.dart';
+import 'core/providers/locale_provider.dart';
 import 'core/services/deep_link_service.dart';
+import 'core/services/locale_service.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/profile/profile_setup_screen.dart';
@@ -20,8 +24,18 @@ void main() async {
   
   // Initialize deep link handling
   await DeepLinkService().initialize();
-  
-  runApp(const ProviderScope(child: PulseApp()));
+
+  // Initialize SharedPreferences for locale persistence
+  final prefs = await SharedPreferences.getInstance();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        localeServiceProvider.overrideWithValue(LocaleService(prefs)),
+      ],
+      child: const PulseApp(),
+    ),
+  );
 }
 
 // GoRouter configuration
@@ -52,25 +66,33 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/dashboard',
-      builder: (context, state) => const Scaffold(
-        body: Center(
-          child: Text('Dashboard - Coming Soon'),
-        ),
-      ),
+      builder: (context, state) {
+        final l10n = AppLocalizations.of(context);
+        return Scaffold(
+          body: Center(
+            child: Text(l10n.dashboardComingSoon),
+          ),
+        );
+      },
     ),
   ],
 );
 
-class PulseApp extends StatelessWidget {
+class PulseApp extends ConsumerWidget {
   const PulseApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeProvider);
+
     return MaterialApp.router(
       title: 'Pulse',
       theme: AppTheme.lightTheme,
       routerConfig: _router,
       debugShowCheckedModeBanner: false,
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
     );
   }
 }

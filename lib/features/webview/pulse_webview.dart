@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config/supabase_config.dart';
+import '../../core/providers/locale_provider.dart';
+import '../../core/services/locale_service.dart';
+import '../../l10n/app_localizations.dart';
 
 /// WebView wrapper for loading Next.js Dashboard
 ///
@@ -10,7 +14,7 @@ import '../../core/config/supabase_config.dart';
 /// - Loading of Next.js Dashboard URL
 /// - JavaScript channel for Flutter ↔ WebView communication
 /// - Handling of window.isReady signal from WebView
-class PulseWebView extends StatefulWidget {
+class PulseWebView extends ConsumerStatefulWidget {
   final VoidCallback? onReady;
   final String dashboardUrl;
 
@@ -21,10 +25,10 @@ class PulseWebView extends StatefulWidget {
   });
 
   @override
-  State<PulseWebView> createState() => _PulseWebViewState();
+  ConsumerState<PulseWebView> createState() => _PulseWebViewState();
 }
 
-class _PulseWebViewState extends State<PulseWebView> {
+class _PulseWebViewState extends ConsumerState<PulseWebView> {
   late final WebViewController _controller;
   bool _isLoading = true;
   bool _hasError = false;
@@ -87,6 +91,9 @@ class _PulseWebViewState extends State<PulseWebView> {
 
             // Inject Supabase session after page loads
             await _injectSupabaseSession();
+
+            // Send current locale to WebView
+            await _sendLocaleToWebView();
           },
           onWebResourceError: (WebResourceError error) {
             setState(() {
@@ -202,10 +209,12 @@ class _PulseWebViewState extends State<PulseWebView> {
       // Check if it's a JSON message (for more complex communication)
       if (message.startsWith('{')) {
         // Parse JSON message
-        // For now, we'll just check for the 'ready' type
         if (message.contains('"type":"ready"') ||
             message.contains('"type": "ready"')) {
           _handleReadySignal();
+        } else if (message.contains('"type":"LOCALE_CHANGED"') ||
+                   message.contains('"type": "LOCALE_CHANGED"')) {
+          _handleLocaleChanged(message);
         }
       } else if (message == 'ready') {
         // Simple string message
@@ -219,6 +228,46 @@ class _PulseWebViewState extends State<PulseWebView> {
   /// Handle the window.isReady signal from WebView
   void _handleReadySignal() {
     widget.onReady?.call();
+  }
+
+  /// Handle LOCALE_CHANGED message from WebView
+  void _handleLocaleChanged(String message) {
+    try {
+      // Simple JSON parsing to extract locale
+      final localeMatch = RegExp(r'"locale"\s*:\s*"([a-z]{2}(-[A-Z]{2})?)"').firstMatch(message);
+      if (localeMatch != null) {
+        final localeCode = localeMatch.group(1)!;
+        final newLocale = Locale(localeCode);
+
+        // Update Riverpod locale provider
+        ref.read(localeProvider.notifier).state = newLocale;
+
+        // Persist to SharedPreferences and Supabase
+        final localeService = ref.read(localeServiceProvider);
+        localeService.setStoredLocale(newLocale);
+        localeService.syncToProfile(newLocale);
+
+        debugPrint('Locale changed from WebView: $localeCode');
+      }
+    } catch (e) {
+      debugPrint('Error handling locale change: $e');
+    }
+  }
+
+  /// Send current locale to WebView
+  Future<void> _sendLocaleToWebView() async {
+    try {
+      final locale = ref.read(localeProvider).languageCode;
+      final js = '''
+        window.dispatchEvent(new CustomEvent('flutter-locale-changed', {
+          detail: { locale: '$locale' }
+        }));
+      ''';
+      await _controller.runJavaScript(js);
+      debugPrint('Locale sent to WebView: $locale');
+    } catch (e) {
+      debugPrint('Error sending locale to WebView: $e');
+    }
   }
 
   /// Extract project reference from Supabase URL
@@ -239,7 +288,7 @@ class _PulseWebViewState extends State<PulseWebView> {
   @override
   Widget build(BuildContext context) {
     if (_hasError) {
-      return _buildErrorView();
+      return _buildErrorView(context);
     }
 
     return Stack(
@@ -258,7 +307,9 @@ class _PulseWebViewState extends State<PulseWebView> {
     );
   }
 
-  Widget _buildErrorView() {
+  Widget _buildErrorView(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Container(
       color: const Color(0xFFF8FAFC),
       child: Center(
@@ -273,9 +324,9 @@ class _PulseWebViewState extends State<PulseWebView> {
                 color: Color(0xFFF28C8C), // AppColors.rose
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Failed to load Dashboard',
-                style: TextStyle(
+              Text(
+                l10n.failedLoadDashboard,
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -283,7 +334,7 @@ class _PulseWebViewState extends State<PulseWebView> {
               ),
               const SizedBox(height: 8),
               Text(
-                _errorMessage ?? 'Unknown error occurred',
+                _errorMessage ?? l10n.unknownErrorOccurred,
                 style: const TextStyle(
                   fontSize: 14,
                   color: Colors.grey,
@@ -302,7 +353,7 @@ class _PulseWebViewState extends State<PulseWebView> {
                   backgroundColor: const Color(0xFF62B1AD),
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Retry'),
+                child: Text(l10n.retry),
               ),
             ],
           ),

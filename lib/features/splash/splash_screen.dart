@@ -5,7 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/colors.dart';
 import '../../core/config/supabase_config.dart';
+import '../../core/providers/locale_provider.dart';
+import '../../core/services/locale_service.dart';
 import '../../core/services/pulse_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../webview/pulse_webview.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -96,6 +99,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _checkAuthAndPulse() async {
+    // Initialize locale from SharedPreferences first (instant, offline-capable)
+    final localeService = ref.read(localeServiceProvider);
+    final storedLocale = localeService.getStoredLocale();
+    ref.read(localeProvider.notifier).state = storedLocale;
+
     // Check if user is authenticated
     final user = SupabaseConfig.client.auth.currentUser;
 
@@ -105,6 +113,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       if (!mounted) return;
       context.go('/auth');
       return;
+    }
+
+    // Sync locale from Supabase profile (server takes priority)
+    final profileLocale = await localeService.getProfileLocale();
+    if (profileLocale != null && profileLocale.languageCode != storedLocale.languageCode) {
+      ref.read(localeProvider.notifier).state = profileLocale;
+      await localeService.setStoredLocale(profileLocale);
     }
 
     // Check if profile exists
@@ -197,6 +212,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: AppColors.offWhite,
       body: Stack(
@@ -249,7 +266,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'Pulse',
+                      l10n.appTitle,
                       style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                             color: AppColors.teal,
                             fontWeight: FontWeight.bold,
