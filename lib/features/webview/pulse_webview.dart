@@ -21,7 +21,7 @@ class PulseWebView extends ConsumerStatefulWidget {
   const PulseWebView({
     super.key,
     this.onReady,
-    this.dashboardUrl = 'http://localhost:3000/dashboard',
+    this.dashboardUrl = 'http://localhost:3000/appview/dashboard',
   });
 
   @override
