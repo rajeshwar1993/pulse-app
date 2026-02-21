@@ -16,7 +16,6 @@ class ProfileSetupScreen extends ConsumerStatefulWidget {
 
 class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   final _nameController = TextEditingController();
-  final _profileService = ProfileService();
   String? _selectedAvatarUrl;
   bool _isLoading = false;
   String? _errorMessage;
@@ -52,7 +51,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     });
 
     try {
-      await _profileService.createProfile(
+      final profileService = ref.read(profileServiceProvider);
+      await profileService.createProfile(
         displayName: _nameController.text.trim(),
         avatarUrl: _selectedAvatarUrl!,
         timezone: _timezone,
@@ -60,7 +60,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
       if (mounted) {
         // Navigate to dashboard
-        context.go('/dashboard');
+        context.go('/');
       }
     } catch (e) {
       if (mounted) {
@@ -98,7 +98,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.1),
+                  color: AppColors.error.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppColors.error),
                 ),

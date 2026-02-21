@@ -7,6 +7,7 @@ import '../../core/theme/colors.dart';
 import '../../core/config/supabase_config.dart';
 import '../../core/providers/locale_provider.dart';
 import '../../core/services/locale_service.dart';
+import '../../core/services/profile_service.dart';
 import '../../core/services/pulse_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../webview/pulse_webview.dart';
@@ -20,6 +21,11 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
+  static const _heartbeatDuration = Duration(milliseconds: 1500);
+  static const _unauthDelay = Duration(seconds: 2);
+  static const _webViewTimeout = Duration(seconds: 5);
+  static const _handoffDelay = Duration(milliseconds: 300);
+
   StreamSubscription<AuthState>? _authSubscription;
   late AnimationController _heartbeatController;
   late Animation<double> _scaleAnimation;
@@ -47,10 +53,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   void _initializeAnimation() {
-    // Create animation controller for heartbeat effect (1.5 seconds duration)
     _heartbeatController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: _heartbeatDuration,
     );
 
     // Scale animation: pulse from 1.0 to 1.2 and back
@@ -109,7 +114,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     if (user == null) {
       // Not authenticated, go to auth screen after animation
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(_unauthDelay);
       if (!mounted) return;
       context.go('/auth');
       return;
@@ -122,18 +127,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       await localeService.setStoredLocale(profileLocale);
     }
 
-    // Check if profile exists
-    final response = await SupabaseConfig.client
-        .from('profiles')
-        .select()
-        .eq('id', user.id)
-        .maybeSingle();
+    // Check if profile exists using ProfileService
+    final profileService = ref.read(profileServiceProvider);
+    final profile = await profileService.getProfile(user.id);
 
     if (!mounted) return;
 
-    if (response == null) {
+    if (profile == null) {
       // No profile, go to profile setup
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(_unauthDelay);
       if (!mounted) return;
       context.go('/profile-setup');
       return;
@@ -145,8 +147,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _executeParallelTasks() async {
-    // Set timeout for WebView ready signal (5 seconds)
-    _timeout = Timer(const Duration(seconds: 5), () {
+    // Set timeout for WebView ready signal
+    _timeout = Timer(_webViewTimeout, () {
       if (!_webViewReady) {
         debugPrint('WebView ready timeout - proceeding anyway');
         setState(() {
@@ -200,7 +202,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       _heartbeatController.stop();
 
       // Wait for current animation cycle to complete, then cross-fade
-      Future.delayed(const Duration(milliseconds: 300), () {
+      Future.delayed(_handoffDelay, () {
         if (mounted) {
           setState(() {
             _shouldShowWebView = true;
@@ -218,65 +220,64 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       backgroundColor: AppColors.offWhite,
       body: Stack(
         children: [
-          // WebView (pre-warming in background, hidden until ready)
-          if (!_shouldShowWebView)
-            const Offstage(
-              child: PulseWebView(),
-            )
-          else
-            PulseWebView(
-              onReady: _onWebViewReady,
-            ),
+          // WebView - single instance, always alive for pre-warming
+          // Visible when ready, hidden behind splash overlay otherwise
+          PulseWebView(
+            onReady: _onWebViewReady,
+          ),
 
-          // Splash screen with heartbeat animation
-          AnimatedOpacity(
-            opacity: _shouldShowWebView ? 0.0 : 1.0,
-            duration: const Duration(milliseconds: 300),
-            child: Container(
-              color: AppColors.offWhite,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Heartbeat animation
-                    AnimatedBuilder(
-                      animation: _heartbeatController,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: _scaleAnimation.value,
-                          child: Opacity(
-                            opacity: _opacityAnimation.value,
-                            child: child,
+          // Splash screen with heartbeat animation (overlays WebView, fades out)
+          IgnorePointer(
+            ignoring: _shouldShowWebView,
+            child: AnimatedOpacity(
+              opacity: _shouldShowWebView ? 0.0 : 1.0,
+              duration: _handoffDelay,
+              child: Container(
+                color: AppColors.offWhite,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Heartbeat animation
+                      AnimatedBuilder(
+                        animation: _heartbeatController,
+                        builder: (context, child) {
+                          return Transform.scale(
+                            scale: _scaleAnimation.value,
+                            child: Opacity(
+                              opacity: _opacityAnimation.value,
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: const BoxDecoration(
+                            color: AppColors.teal,
+                            shape: BoxShape.circle,
                           ),
-                        );
-                      },
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: const BoxDecoration(
-                          color: AppColors.teal,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.favorite,
-                          size: 60,
-                          color: Colors.white,
+                          child: const Icon(
+                            Icons.favorite,
+                            size: 60,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      l10n.appTitle,
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            color: AppColors.teal,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 24),
-                    const CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.teal),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      Text(
+                        l10n.appTitle,
+                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                              color: AppColors.teal,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 24),
+                      const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.teal),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

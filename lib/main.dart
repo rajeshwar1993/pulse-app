@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,13 +16,25 @@ import 'features/profile/profile_setup_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // Global error handler for uncaught Flutter framework errors
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('FlutterError: ${details.exceptionAsString()}');
+  };
+
+  // Global error handler for uncaught async errors
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Uncaught error: $error\n$stack');
+    return true;
+  };
+
   // Load environment variables
   await dotenv.load(fileName: '.env');
-  
+
   // Initialize Supabase
   await SupabaseConfig.initialize();
-  
+
   // Initialize deep link handling
   await DeepLinkService().initialize();
 
@@ -63,17 +76,6 @@ final _router = GoRouter(
     GoRoute(
       path: '/profile-setup',
       builder: (context, state) => const ProfileSetupScreen(),
-    ),
-    GoRoute(
-      path: '/dashboard',
-      builder: (context, state) {
-        final l10n = AppLocalizations.of(context);
-        return Scaffold(
-          body: Center(
-            child: Text(l10n.dashboardComingSoon),
-          ),
-        );
-      },
     ),
   ],
 );

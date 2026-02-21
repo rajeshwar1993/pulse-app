@@ -10,13 +10,15 @@ class DeepLinkService {
   DeepLinkService._internal();
 
   final _appLinks = AppLinks();
-  final _connectionService = ConnectionService();
+  late final ConnectionService _connectionService;
   StreamSubscription<Uri>? _linkSubscription;
 
   String? _pendingInviteCode;
 
   /// Initialize deep link handling
   Future<void> initialize() async {
+    _connectionService = ConnectionService(SupabaseConfig.client);
+
     // Handle initial link if app was opened from a deep link
     try {
       final initialUri = await _appLinks.getInitialAppLink();

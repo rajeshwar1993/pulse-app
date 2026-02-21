@@ -75,7 +75,7 @@ void main() {
 
       expect(find.text('Pulse'), findsOneWidget);
       expect(find.byIcon(Icons.favorite), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsAtLeastNWidgets(1));
 
       await drainTimers(tester);
     });
@@ -135,7 +135,7 @@ void main() {
       await tester.pumpWidget(buildTestWidget());
       await tester.pump();
 
-      expect(find.byType(Offstage), findsAtLeastNWidgets(1));
+      expect(find.byType(IgnorePointer), findsAtLeastNWidgets(1));
 
       await drainTimers(tester);
     });

@@ -1,24 +1,23 @@
-import '../config/supabase_config.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/profile.dart';
 
 class ProfileService {
-  final _supabase = SupabaseConfig.client;
+  final SupabaseClient _supabase;
+
+  ProfileService(this._supabase);
 
   /// Get profile for a specific user ID
   Future<Profile?> getProfile(String userId) async {
-    try {
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
+    final response = await _supabase
+        .from('profiles')
+        .select()
+        .eq('id', userId)
+        .maybeSingle();
 
-      if (response == null) return null;
+    if (response == null) return null;
 
-      return Profile.fromJson(response);
-    } catch (e) {
-      rethrow;
-    }
+    return Profile.fromJson(response);
   }
 
   /// Get current user's profile
@@ -35,28 +34,24 @@ class ProfileService {
     required String avatarUrl,
     required String timezone,
   }) async {
-    try {
-      final user = _supabase.auth.currentUser;
-      if (user == null) {
-        throw Exception('No authenticated user');
-      }
-
-      final response = await _supabase
-          .from('profiles')
-          .insert({
-            'id': user.id,
-            'email': user.email!,
-            'display_name': displayName,
-            'avatar_url': avatarUrl,
-            'timezone': timezone,
-          })
-          .select()
-          .single();
-
-      return Profile.fromJson(response);
-    } catch (e) {
-      rethrow;
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      throw Exception('No authenticated user');
     }
+
+    final response = await _supabase
+        .from('profiles')
+        .insert({
+          'id': user.id,
+          'email': user.email ?? '',
+          'display_name': displayName,
+          'avatar_url': avatarUrl,
+          'timezone': timezone,
+        })
+        .select()
+        .single();
+
+    return Profile.fromJson(response);
   }
 
   /// Update existing profile
@@ -65,25 +60,26 @@ class ProfileService {
     String? displayName,
     String? avatarUrl,
   }) async {
-    try {
-      final updates = <String, dynamic>{};
-      if (displayName != null) updates['display_name'] = displayName;
-      if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
+    final updates = <String, dynamic>{};
+    if (displayName != null) updates['display_name'] = displayName;
+    if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
 
-      if (updates.isEmpty) {
-        throw Exception('No fields to update');
-      }
-
-      final response = await _supabase
-          .from('profiles')
-          .update(updates)
-          .eq('id', userId)
-          .select()
-          .single();
-
-      return Profile.fromJson(response);
-    } catch (e) {
-      rethrow;
+    if (updates.isEmpty) {
+      throw Exception('No fields to update');
     }
+
+    final response = await _supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId)
+        .select()
+        .single();
+
+    return Profile.fromJson(response);
   }
 }
+
+/// Riverpod provider for ProfileService
+final profileServiceProvider = Provider<ProfileService>((ref) {
+  return ProfileService(Supabase.instance.client);
+});

@@ -39,6 +39,50 @@ class Connection {
     };
   }
 
+  Connection copyWith({
+    String? id,
+    String? fromUserId,
+    String? toUserId,
+    DateTime? createdAt,
+    DateTime? removedAt,
+    String? removedBy,
+  }) {
+    return Connection(
+      id: id ?? this.id,
+      fromUserId: fromUserId ?? this.fromUserId,
+      toUserId: toUserId ?? this.toUserId,
+      createdAt: createdAt ?? this.createdAt,
+      removedAt: removedAt ?? this.removedAt,
+      removedBy: removedBy ?? this.removedBy,
+    );
+  }
+
   bool get isActive => removedAt == null;
   bool get isRemoved => removedAt != null;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Connection &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          fromUserId == other.fromUserId &&
+          toUserId == other.toUserId &&
+          createdAt == other.createdAt &&
+          removedAt == other.removedAt &&
+          removedBy == other.removedBy;
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        fromUserId,
+        toUserId,
+        createdAt,
+        removedAt,
+        removedBy,
+      );
+
+  @override
+  String toString() =>
+      'Connection(id: $id, from: $fromUserId, to: $toUserId, active: $isActive)';
 }

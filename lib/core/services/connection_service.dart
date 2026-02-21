@@ -1,9 +1,11 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../config/supabase_config.dart';
 import '../models/invite_code.dart';
 
 class ConnectionService {
-  final _supabase = SupabaseConfig.client;
+  final SupabaseClient _supabase;
+
+  ConnectionService(this._supabase);
 
   // ============================================================================
   // CONNECTION MANAGEMENT
@@ -207,3 +209,8 @@ class ConnectionService {
         .toList();
   }
 }
+
+/// Riverpod provider for ConnectionService
+final connectionServiceProvider = Provider<ConnectionService>((ref) {
+  return ConnectionService(Supabase.instance.client);
+});

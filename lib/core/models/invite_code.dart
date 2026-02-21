@@ -31,7 +31,67 @@ class InviteCode {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'code': code,
+      'creator_id': creatorId,
+      'created_at': createdAt.toIso8601String(),
+      'expires_at': expiresAt.toIso8601String(),
+      'accepted_by': acceptedBy,
+      'accepted_at': acceptedAt?.toIso8601String(),
+    };
+  }
+
+  InviteCode copyWith({
+    String? id,
+    String? code,
+    String? creatorId,
+    DateTime? createdAt,
+    DateTime? expiresAt,
+    String? acceptedBy,
+    DateTime? acceptedAt,
+  }) {
+    return InviteCode(
+      id: id ?? this.id,
+      code: code ?? this.code,
+      creatorId: creatorId ?? this.creatorId,
+      createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      acceptedBy: acceptedBy ?? this.acceptedBy,
+      acceptedAt: acceptedAt ?? this.acceptedAt,
+    );
+  }
+
   bool get isExpired => DateTime.now().isAfter(expiresAt);
   bool get isAccepted => acceptedBy != null;
   bool get isValid => !isExpired && !isAccepted;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InviteCode &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          code == other.code &&
+          creatorId == other.creatorId &&
+          createdAt == other.createdAt &&
+          expiresAt == other.expiresAt &&
+          acceptedBy == other.acceptedBy &&
+          acceptedAt == other.acceptedAt;
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        code,
+        creatorId,
+        createdAt,
+        expiresAt,
+        acceptedBy,
+        acceptedAt,
+      );
+
+  @override
+  String toString() =>
+      'InviteCode(code: $code, creator: $creatorId, valid: $isValid)';
 }

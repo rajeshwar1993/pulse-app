@@ -423,7 +423,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       _isSignUpMode
                           ? l10n.alreadyHaveAccount
                           : l10n.dontHaveAccount,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppColors.teal,
                         fontWeight: FontWeight.w500,
                       ),

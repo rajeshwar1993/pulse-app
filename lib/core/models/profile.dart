@@ -60,4 +60,32 @@ class Profile {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Profile &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          email == other.email &&
+          displayName == other.displayName &&
+          avatarUrl == other.avatarUrl &&
+          timezone == other.timezone &&
+          createdAt == other.createdAt &&
+          updatedAt == other.updatedAt;
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        email,
+        displayName,
+        avatarUrl,
+        timezone,
+        createdAt,
+        updatedAt,
+      );
+
+  @override
+  String toString() =>
+      'Profile(id: $id, email: $email, displayName: $displayName)';
 }

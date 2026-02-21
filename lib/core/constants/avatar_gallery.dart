@@ -22,12 +22,12 @@ class AvatarGallery {
   static List<String> getAvatarUrls() {
     return seeds
         .map((seed) =>
-            'https://api.dicebear.com/7.x/avataaars/svg?seed=$seed')
+            'https://api.dicebear.com/7.x/avataaars/png?seed=$seed')
         .toList();
   }
 
   /// Get avatar URL for a specific seed
   static String getAvatarUrl(String seed) {
-    return 'https://api.dicebear.com/7.x/avataaars/svg?seed=$seed';
+    return 'https://api.dicebear.com/7.x/avataaars/png?seed=$seed';
   }
 }

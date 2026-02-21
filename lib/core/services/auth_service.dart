@@ -8,54 +8,32 @@ class AuthService {
 
   /// Sign in with Google OAuth
   Future<bool> signInWithGoogle() async {
-    try {
-      final response = await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'pulse://auth/callback',
-      );
-      return response;
-    } catch (e) {
-      rethrow;
-    }
+    final response = await _supabase.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: 'pulse://auth/callback',
+    );
+    return response;
   }
 
   /// Sign up with email and password
   Future<AuthResponse> signUp(String email, String password) async {
-    try {
-      final response = await _supabase.auth.signUp(
-        email: email,
-        password: password,
-      );
-      return response;
-    } on AuthException {
-      rethrow;
-    } catch (e) {
-      rethrow;
-    }
+    return _supabase.auth.signUp(
+      email: email,
+      password: password,
+    );
   }
 
   /// Sign in with email and password
   Future<AuthResponse> signInWithPassword(String email, String password) async {
-    try {
-      final response = await _supabase.auth.signInWithPassword(
-        email: email,
-        password: password,
-      );
-      return response;
-    } on AuthException {
-      rethrow;
-    } catch (e) {
-      rethrow;
-    }
+    return _supabase.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
   }
 
   /// Sign out
   Future<void> signOut() async {
-    try {
-      await _supabase.auth.signOut();
-    } catch (e) {
-      rethrow;
-    }
+    await _supabase.auth.signOut();
   }
 
   /// Get current user

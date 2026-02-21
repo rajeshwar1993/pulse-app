@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -46,10 +47,10 @@ class PulseService {
           .gte('created_at', startOfDay.toIso8601String())
           .count(CountOption.exact);
 
-      return (response.count ?? 0) > 0;
+      return response.count > 0;
     } catch (e) {
       // Log error and return false to allow graceful degradation
-      print('Error checking pulse status: $e');
+      debugPrint('Error checking pulse status: $e');
       return false;
     }
   }
@@ -73,7 +74,7 @@ class PulseService {
       return true;
     } catch (e) {
       // Log error and return false
-      print('Error sending pulse: $e');
+      debugPrint('Error sending pulse: $e');
       return false;
     }
   }
@@ -88,7 +89,7 @@ class PulseService {
       final alreadyPulsed = await hasPulsedToday();
 
       if (alreadyPulsed) {
-        print('User has already pulsed today');
+        debugPrint('User has already pulsed today');
         return false; // Already pulsed, no action needed
       }
 
@@ -96,14 +97,14 @@ class PulseService {
       final success = await sendPulse();
 
       if (success) {
-        print('Pulse sent successfully');
+        debugPrint('Pulse sent successfully');
       } else {
-        print('Failed to send pulse');
+        debugPrint('Failed to send pulse');
       }
 
       return success;
     } catch (e) {
-      print('Error in checkAndPulse: $e');
+      debugPrint('Error in checkAndPulse: $e');
       return false;
     }
   }
