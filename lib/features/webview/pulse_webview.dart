@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -7,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config/supabase_config.dart';
 import '../../core/providers/locale_provider.dart';
 import '../../core/services/locale_service.dart';
-import '../../core/theme/colors.dart';
 import '../../l10n/app_localizations.dart';
 
 /// WebView wrapper for loading Next.js Dashboard
@@ -23,7 +21,7 @@ class PulseWebView extends ConsumerStatefulWidget {
   const PulseWebView({
     super.key,
     this.onReady,
-    this.dashboardUrl = '',
+    this.dashboardUrl = 'http://localhost:3000/appview/dashboard',
   });
 
   @override
@@ -37,9 +35,6 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
   String? _errorMessage;
   StreamSubscription? _authSubscription;
   bool _hasInjectedSession = false;
-
-  String get _effectiveUrl =>
-      widget.dashboardUrl.isNotEmpty ? widget.dashboardUrl : SupabaseConfig.webViewUrl;
 
   @override
   void initState() {
@@ -72,7 +67,7 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
   void _initializeWebView() {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(AppColors.offWhite)
+      ..setBackgroundColor(const Color(0xFFF8FAFC)) // AppColors.offWhite
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (int progress) {
@@ -116,7 +111,7 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
           _handleMessage(message.message);
         },
       )
-      ..loadRequest(Uri.parse(_effectiveUrl));
+      ..loadRequest(Uri.parse(widget.dashboardUrl));
   }
 
   /// Inject Supabase session from Flutter into WebView
@@ -133,56 +128,58 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
         return;
       }
 
-      // Build session data safely using jsonEncode
-      final sessionData = {
-        'access_token': session.accessToken,
-        'refresh_token': session.refreshToken,
-        'expires_at': session.expiresAt,
-        'expires_in': session.expiresAt != null
-            ? session.expiresAt! - DateTime.now().millisecondsSinceEpoch ~/ 1000
-            : 3600,
-        'token_type': 'bearer',
-        'user': {
-          'id': session.user.id,
-          'email': session.user.email ?? '',
-          'aud': 'authenticated',
-          'role': 'authenticated',
-        },
-      };
+      // Get session data
+      final accessToken = session.accessToken;
+      final refreshToken = session.refreshToken;
+      final expiresAt = session.expiresAt;
+      final user = session.user;
 
-      final sessionJsonString = jsonEncode(sessionData);
+      // Create session object for WebView
+      final sessionJson = '''
+      {
+        "access_token": "$accessToken",
+        "refresh_token": "$refreshToken",
+        "expires_at": $expiresAt,
+        "expires_in": ${expiresAt != null ? expiresAt - DateTime.now().millisecondsSinceEpoch ~/ 1000 : 3600},
+        "token_type": "bearer",
+        "user": {
+          "id": "${user.id}",
+          "email": "${user.email}",
+          "aud": "authenticated",
+          "role": "authenticated"
+        }
+      }
+      ''';
 
-      // Extract project ref for storage key
+      // Inject session into localStorage
+      // Supabase stores session in localStorage with key format:
+      // sb-<project-ref>-auth-token
       final supabaseUrl = SupabaseConfig.supabaseUrl;
       final projectRef = _getProjectRef(supabaseUrl);
       final storageKey = 'sb-$projectRef-auth-token';
 
-      // Safely encode all values for JS injection
-      final encodedStorageKey = jsonEncode(storageKey);
-      final encodedSessionJson = jsonEncode(sessionJsonString);
-
       final jsCode = '''
         (function() {
           try {
-            var storageKey = $encodedStorageKey;
-            var sessionString = $encodedSessionJson;
-            var session = JSON.parse(sessionString);
-
             // Set in localStorage
-            localStorage.setItem(storageKey, sessionString);
+            localStorage.setItem('$storageKey', JSON.stringify($sessionJson));
 
             // Set session in cookies (required for server-side auth)
-            var encodedSession = encodeURIComponent(sessionString);
-            document.cookie = storageKey + '=' + encodedSession + '; path=/; max-age=3600; SameSite=Lax; Secure';
+            const sessionString = JSON.stringify($sessionJson);
+            const encodedSession = encodeURIComponent(sessionString);
+
+            // Set the main session cookie
+            document.cookie = '$storageKey=' + encodedSession + '; path=/; max-age=3600; SameSite=Lax';
 
             // Set individual token cookies
-            document.cookie = 'sb-access-token=' + encodeURIComponent(session.access_token) + '; path=/; max-age=3600; SameSite=Lax; Secure';
-            document.cookie = 'sb-refresh-token=' + encodeURIComponent(session.refresh_token) + '; path=/; max-age=' + (60 * 60 * 24 * 30) + '; SameSite=Lax; Secure';
+            const session = $sessionJson;
+            document.cookie = 'sb-access-token=' + encodeURIComponent(session.access_token) + '; path=/; max-age=3600; SameSite=Lax';
+            document.cookie = 'sb-refresh-token=' + encodeURIComponent(session.refresh_token) + '; path=/; max-age=' + (60 * 60 * 24 * 30) + '; SameSite=Lax';
 
             // Dispatch storage event to notify Supabase client
             window.dispatchEvent(new StorageEvent('storage', {
-              key: storageKey,
-              newValue: sessionString,
+              key: '$storageKey',
+              newValue: JSON.stringify($sessionJson),
               url: window.location.href
             }));
 
@@ -209,21 +206,19 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
   /// Handle messages from WebView
   void _handleMessage(String message) {
     try {
-      if (message == 'ready') {
-        _handleReadySignal();
-        return;
-      }
-
+      // Check if it's a JSON message (for more complex communication)
       if (message.startsWith('{')) {
-        final parsed = jsonDecode(message) as Map<String, dynamic>;
-        final type = parsed['type'] as String?;
-
-        switch (type) {
-          case 'ready':
-            _handleReadySignal();
-          case 'LOCALE_CHANGED':
-            _handleLocaleChanged(parsed);
+        // Parse JSON message
+        if (message.contains('"type":"ready"') ||
+            message.contains('"type": "ready"')) {
+          _handleReadySignal();
+        } else if (message.contains('"type":"LOCALE_CHANGED"') ||
+                   message.contains('"type": "LOCALE_CHANGED"')) {
+          _handleLocaleChanged(message);
         }
+      } else if (message == 'ready') {
+        // Simple string message
+        _handleReadySignal();
       }
     } catch (e) {
       debugPrint('Error handling WebView message: $e');
@@ -236,12 +231,12 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
   }
 
   /// Handle LOCALE_CHANGED message from WebView
-  void _handleLocaleChanged(Map<String, dynamic> parsed) {
+  void _handleLocaleChanged(String message) {
     try {
-      final payload = parsed['payload'] as Map<String, dynamic>?;
-      final localeCode = payload?['locale'] as String? ?? parsed['locale'] as String?;
-
-      if (localeCode != null && localeCode.isNotEmpty) {
+      // Simple JSON parsing to extract locale
+      final localeMatch = RegExp(r'"locale"\s*:\s*"([a-z]{2}(-[A-Z]{2})?)"').firstMatch(message);
+      if (localeMatch != null) {
+        final localeCode = localeMatch.group(1)!;
         final newLocale = Locale(localeCode);
 
         // Update Riverpod locale provider
@@ -263,10 +258,9 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
   Future<void> _sendLocaleToWebView() async {
     try {
       final locale = ref.read(localeProvider).languageCode;
-      final encodedLocale = jsonEncode(locale);
       final js = '''
         window.dispatchEvent(new CustomEvent('flutter-locale-changed', {
-          detail: { locale: $encodedLocale }
+          detail: { locale: '$locale' }
         }));
       ''';
       await _controller.runJavaScript(js);
@@ -302,10 +296,10 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
         WebViewWidget(controller: _controller),
         if (_isLoading)
           Container(
-            color: AppColors.offWhite,
+            color: const Color(0xFFF8FAFC),
             child: const Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.teal),
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF62B1AD)),
               ),
             ),
           ),
@@ -317,7 +311,7 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
     final l10n = AppLocalizations.of(context);
 
     return Container(
-      color: AppColors.offWhite,
+      color: const Color(0xFFF8FAFC),
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -327,7 +321,7 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
               const Icon(
                 Icons.error_outline,
                 size: 64,
-                color: AppColors.rose,
+                color: Color(0xFFF28C8C), // AppColors.rose
               ),
               const SizedBox(height: 16),
               Text(
@@ -356,7 +350,7 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
                   _controller.reload();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.teal,
+                  backgroundColor: const Color(0xFF62B1AD),
                   foregroundColor: Colors.white,
                 ),
                 child: Text(l10n.retry),
