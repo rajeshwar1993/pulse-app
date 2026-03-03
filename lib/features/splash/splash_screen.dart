@@ -296,10 +296,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                               fontWeight: FontWeight.bold,
                             ),
                       ),
-                      const SizedBox(height: 24),
-                      const CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.teal),
-                      ),
                     ],
                   ),
                 ),
