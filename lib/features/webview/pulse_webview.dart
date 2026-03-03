@@ -343,7 +343,13 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
     }
   }
 
-  /// Handle AUTH_COMPLETED — sync email/password session from web to Flutter
+  /// Handle AUTH_COMPLETED — persist session for cold-start recovery.
+  ///
+  /// We persist directly to SharedPreferences instead of calling
+  /// setSession(), because setSession() emits tokenRefreshed which
+  /// triggers _injectSupabaseSession() → _controller.reload(), disrupting
+  /// the web-side navigation already in progress after login.
+  /// The WebView already has its own session from signInWithPassword().
   Future<void> _handleAuthCompleted(Map<String, dynamic> decoded) async {
     try {
       final payload = decoded['payload'] as Map<String, dynamic>?;
@@ -354,24 +360,10 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
 
       if (accessToken == null || refreshToken == null) return;
 
-      debugPrint('Syncing auth session from WebView to Flutter');
-
-      // Try the SDK approach first (exchanges refresh token via network call)
-      try {
-        await SupabaseConfig.client.auth.setSession(refreshToken);
-        debugPrint('Session synced via SDK setSession');
-        return;
-      } catch (e) {
-        debugPrint('SDK setSession failed: $e — using manual persistence');
-      }
-
-      // Fallback: persist session directly to SharedPreferences.
-      // This ensures the session survives app kills even when
-      // setSession() fails (network error, token race, etc.).
-      // On cold start, supabase_flutter reads this and restores the session.
+      debugPrint('Persisting auth session for cold-start recovery');
       await _persistSessionManually(accessToken, refreshToken, payload);
     } catch (e) {
-      debugPrint('Error syncing auth session: $e');
+      debugPrint('Error persisting auth session: $e');
     }
   }
 
@@ -407,10 +399,6 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
           'created_at': '',
         },
       };
-
-      // Wait for any signedOut events from the failed setSession() to be
-      // processed (the SDK removes persisted sessions on auth failure)
-      await Future.delayed(const Duration(milliseconds: 200));
 
       // Write using the same key supabase_flutter uses
       final projectRef = _getProjectRef(SupabaseConfig.supabaseUrl);
