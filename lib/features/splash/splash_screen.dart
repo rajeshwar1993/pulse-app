@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/colors.dart';
 import '../../core/config/supabase_config.dart';
@@ -34,7 +33,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   bool _pulseCompleted = false;
   bool _webViewReady = false;
   bool _shouldShowWebView = false;
+  bool _needsPulse = false;
+  String _targetUrl = '';
   Timer? _timeout;
+
+  /// Key for accessing PulseWebViewState to call navigateTo
+  final _webViewKey = GlobalKey<PulseWebViewState>();
 
   @override
   void initState() {
@@ -111,12 +115,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     // Check if user is authenticated
     final user = SupabaseConfig.client.auth.currentUser;
+    final baseUrl = SupabaseConfig.webViewBaseUrl;
 
     if (user == null) {
-      // Not authenticated, go to auth screen after animation
+      // Not authenticated — load auth page in WebView
       await Future.delayed(_unauthDelay);
       if (!mounted) return;
-      context.go('/auth');
+
+      setState(() {
+        _needsPulse = false;
+        _pulseCompleted = true; // No pulse needed, mark as done
+        _targetUrl = '$baseUrl/appview/auth/login';
+      });
+      // WebView ready signal from auth page will trigger handoff
       return;
     }
 
@@ -134,15 +145,24 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (!mounted) return;
 
     if (profile == null) {
-      // No profile, go to profile setup
+      // No profile — load profile setup in WebView
       await Future.delayed(_unauthDelay);
       if (!mounted) return;
-      context.go('/profile-setup');
+
+      setState(() {
+        _needsPulse = false;
+        _pulseCompleted = true; // No pulse needed, mark as done
+        _targetUrl = '$baseUrl/appview/profile-setup';
+      });
       return;
     }
 
     // User is authenticated and has profile
     // Execute parallel tasks: Pulse + WebView pre-warming
+    setState(() {
+      _needsPulse = true;
+      _targetUrl = '$baseUrl/appview/dashboard';
+    });
     _executeParallelTasks();
   }
 
@@ -194,8 +214,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   void _checkHandoff() {
-    // Both pulse and WebView must be ready before handoff
-    if (_pulseCompleted && _webViewReady && !_shouldShowWebView) {
+    // Pulse readiness: either we don't need pulse, or it completed
+    final pulseReady = !_needsPulse || _pulseCompleted;
+
+    if (pulseReady && _webViewReady && !_shouldShowWebView) {
       debugPrint('Both tasks complete - initiating handoff');
 
       // Stop the heartbeat animation
@@ -220,11 +242,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       backgroundColor: AppColors.offWhite,
       body: Stack(
         children: [
-          // WebView - single instance, always alive for pre-warming
-          // Visible when ready, hidden behind splash overlay otherwise
-          PulseWebView(
-            onReady: _onWebViewReady,
-          ),
+          // WebView - only created once _targetUrl is determined
+          if (_targetUrl.isNotEmpty)
+            PulseWebView(
+              key: _webViewKey,
+              initialUrl: _targetUrl,
+              onReady: _onWebViewReady,
+            ),
 
           // Splash screen with heartbeat animation (overlays WebView, fades out)
           IgnorePointer(

@@ -69,7 +69,7 @@ void main() {
           child: MaterialApp(
             home: Scaffold(
               body: PulseWebView(
-                dashboardUrl: testUrl,
+                initialUrl: testUrl,
               ),
             ),
           ),

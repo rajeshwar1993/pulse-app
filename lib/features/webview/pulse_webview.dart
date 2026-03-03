@@ -1,34 +1,37 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config/supabase_config.dart';
 import '../../core/providers/locale_provider.dart';
+import '../../core/services/auth_service.dart';
 import '../../core/services/locale_service.dart';
+import '../../core/services/profile_service.dart';
 import '../../l10n/app_localizations.dart';
 
-/// WebView wrapper for loading Next.js Dashboard
+/// WebView wrapper for loading Next.js pages (auth, dashboard, etc.)
 ///
 /// This widget wraps the webview_flutter package and provides:
-/// - Loading of Next.js Dashboard URL
+/// - Loading of any appview URL (auth, dashboard, profile-setup)
 /// - JavaScript channel for Flutter ↔ WebView communication
-/// - Handling of window.isReady signal from WebView
+/// - Handling of ready signal, auth messages, and locale changes
 class PulseWebView extends ConsumerStatefulWidget {
   final VoidCallback? onReady;
-  final String dashboardUrl;
+  final String initialUrl;
 
   const PulseWebView({
     super.key,
     this.onReady,
-    this.dashboardUrl = 'http://localhost:3000/appview/dashboard',
+    this.initialUrl = 'http://localhost:3000/appview/dashboard',
   });
 
   @override
-  ConsumerState<PulseWebView> createState() => _PulseWebViewState();
+  ConsumerState<PulseWebView> createState() => PulseWebViewState();
 }
 
-class _PulseWebViewState extends ConsumerState<PulseWebView> {
+class PulseWebViewState extends ConsumerState<PulseWebView> {
   late final WebViewController _controller;
   bool _isLoading = true;
   bool _hasError = false;
@@ -49,19 +52,72 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
     super.dispose();
   }
 
+  /// Navigate the WebView to a new URL
+  void navigateTo(String url) {
+    _hasInjectedSession = false;
+    _controller.loadRequest(Uri.parse(url));
+  }
+
+  /// Extract base URL (scheme + host + port) from a full URL
+  String _getBaseUrl() {
+    final uri = Uri.parse(widget.initialUrl);
+    return '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+  }
+
   /// Listen to auth state changes and re-inject session when it changes
   void _listenToAuthChanges() {
-    _authSubscription = SupabaseConfig.client.auth.onAuthStateChange.listen((data) {
+    _authSubscription = SupabaseConfig.client.auth.onAuthStateChange.listen((data) async {
       final event = data.event;
 
-      // Re-inject session when signed in or token refreshed
       if (event == AuthChangeEvent.signedIn ||
           event == AuthChangeEvent.tokenRefreshed) {
         // Reset flag to allow re-injection
         _hasInjectedSession = false;
-        _injectSupabaseSession();
+        await _injectSupabaseSession();
+
+        // If this was a Google OAuth sign-in (deep link callback),
+        // navigate WebView to the correct page
+        if (event == AuthChangeEvent.signedIn) {
+          await _handlePostGoogleAuth();
+        }
       }
     });
+  }
+
+  /// After Google OAuth completes, check profile and navigate WebView
+  Future<void> _handlePostGoogleAuth() async {
+    try {
+      final user = SupabaseConfig.client.auth.currentUser;
+      if (user == null) return;
+
+      final profileService = ref.read(profileServiceProvider);
+      final profile = await profileService.getProfile(user.id);
+      final baseUrl = _getBaseUrl();
+
+      final redirectTo = profile != null
+          ? '$baseUrl/appview/dashboard'
+          : '$baseUrl/appview/profile-setup';
+
+      // Dispatch success event to web
+      await _controller.runJavaScript('''
+        window.dispatchEvent(new CustomEvent('flutter-google-auth-success', {
+          detail: { redirectTo: '$redirectTo' }
+        }));
+      ''');
+
+      // Navigate WebView to the target page
+      navigateTo(redirectTo);
+    } catch (e) {
+      debugPrint('Error handling post-Google auth: $e');
+      // Dispatch error event to web
+      try {
+        await _controller.runJavaScript('''
+          window.dispatchEvent(new CustomEvent('flutter-google-auth-error', {
+            detail: { error: 'Failed to complete sign-in' }
+          }));
+        ''');
+      } catch (_) {}
+    }
   }
 
   void _initializeWebView() {
@@ -111,7 +167,7 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
           _handleMessage(message.message);
         },
       )
-      ..loadRequest(Uri.parse(widget.dashboardUrl));
+      ..loadRequest(Uri.parse(widget.initialUrl));
   }
 
   /// Inject Supabase session from Flutter into WebView
@@ -203,21 +259,27 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
     }
   }
 
-  /// Handle messages from WebView
+  /// Handle messages from WebView using JSON parsing
   void _handleMessage(String message) {
     try {
-      // Check if it's a JSON message (for more complex communication)
       if (message.startsWith('{')) {
-        // Parse JSON message
-        if (message.contains('"type":"ready"') ||
-            message.contains('"type": "ready"')) {
-          _handleReadySignal();
-        } else if (message.contains('"type":"LOCALE_CHANGED"') ||
-                   message.contains('"type": "LOCALE_CHANGED"')) {
-          _handleLocaleChanged(message);
+        final decoded = jsonDecode(message) as Map<String, dynamic>;
+        final type = decoded['type'] as String?;
+
+        switch (type) {
+          case 'ready':
+            _handleReadySignal();
+          case 'LOCALE_CHANGED':
+            _handleLocaleChanged(decoded);
+          case 'GOOGLE_SIGN_IN_REQUESTED':
+            _handleGoogleSignInRequested();
+          case 'AUTH_COMPLETED':
+            _handleAuthCompleted(decoded);
+          default:
+            debugPrint('Unknown FlutterBridge message type: $type');
         }
       } else if (message == 'ready') {
-        // Simple string message
+        // Simple string message fallback
         _handleReadySignal();
       }
     } catch (e) {
@@ -225,18 +287,16 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
     }
   }
 
-  /// Handle the window.isReady signal from WebView
+  /// Handle the ready signal from WebView
   void _handleReadySignal() {
     widget.onReady?.call();
   }
 
   /// Handle LOCALE_CHANGED message from WebView
-  void _handleLocaleChanged(String message) {
+  void _handleLocaleChanged(Map<String, dynamic> decoded) {
     try {
-      // Simple JSON parsing to extract locale
-      final localeMatch = RegExp(r'"locale"\s*:\s*"([a-z]{2}(-[A-Z]{2})?)"').firstMatch(message);
-      if (localeMatch != null) {
-        final localeCode = localeMatch.group(1)!;
+      final localeCode = decoded['locale'] as String?;
+      if (localeCode != null) {
         final newLocale = Locale(localeCode);
 
         // Update Riverpod locale provider
@@ -251,6 +311,55 @@ class _PulseWebViewState extends ConsumerState<PulseWebView> {
       }
     } catch (e) {
       debugPrint('Error handling locale change: $e');
+    }
+  }
+
+  /// Handle GOOGLE_SIGN_IN_REQUESTED — delegate OAuth to native
+  Future<void> _handleGoogleSignInRequested() async {
+    try {
+      debugPrint('Google sign-in requested from WebView');
+      final authService = ref.read(authServiceProvider);
+      final success = await authService.signInWithGoogle();
+
+      if (!success) {
+        // Dispatch error to web
+        await _controller.runJavaScript('''
+          window.dispatchEvent(new CustomEvent('flutter-google-auth-error', {
+            detail: { error: 'Google sign-in was cancelled or failed' }
+          }));
+        ''');
+      }
+      // If success, the auth state listener will handle navigation
+    } catch (e) {
+      debugPrint('Error handling Google sign-in: $e');
+      try {
+        await _controller.runJavaScript('''
+          window.dispatchEvent(new CustomEvent('flutter-google-auth-error', {
+            detail: { error: 'Google sign-in failed' }
+          }));
+        ''');
+      } catch (_) {}
+    }
+  }
+
+  /// Handle AUTH_COMPLETED — sync email/password session from web to Flutter
+  Future<void> _handleAuthCompleted(Map<String, dynamic> decoded) async {
+    try {
+      final payload = decoded['payload'] as Map<String, dynamic>?;
+      if (payload == null) return;
+
+      final accessToken = payload['accessToken'] as String?;
+      final refreshToken = payload['refreshToken'] as String?;
+
+      if (accessToken != null && refreshToken != null) {
+        debugPrint('Syncing auth session from WebView to Flutter');
+        await SupabaseConfig.client.auth.setSession(
+          accessToken,
+        );
+        debugPrint('Session synced successfully');
+      }
+    } catch (e) {
+      debugPrint('Error syncing auth session: $e');
     }
   }
 

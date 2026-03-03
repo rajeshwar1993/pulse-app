@@ -35,14 +35,6 @@ void main() {
           path: '/',
           builder: (_, __) => const SplashScreen(),
         ),
-        GoRoute(
-          path: '/auth',
-          builder: (_, __) => const Scaffold(body: Text('Auth Page')),
-        ),
-        GoRoute(
-          path: '/profile-setup',
-          builder: (_, __) => const Scaffold(body: Text('Profile Setup')),
-        ),
       ],
     );
 
@@ -59,9 +51,9 @@ void main() {
     );
   }
 
-  /// Pumps past all pending timers (2s delay + navigation settle).
-  /// Since currentUser is null, _checkAuthAndPulse waits 2s then navigates
-  /// to /auth, which disposes the SplashScreen and its animation controller.
+  /// Pumps past all pending timers (2s delay + state settle).
+  /// Since currentUser is null, _checkAuthAndPulse waits 2s then sets
+  /// _targetUrl, which triggers a rebuild.
   Future<void> drainTimers(WidgetTester tester) async {
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();

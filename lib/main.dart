@@ -11,8 +11,6 @@ import 'core/providers/locale_provider.dart';
 import 'core/services/deep_link_service.dart';
 import 'core/services/locale_service.dart';
 import 'features/splash/splash_screen.dart';
-import 'features/auth/auth_screen.dart';
-import 'features/profile/profile_setup_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,14 +66,6 @@ final _router = GoRouter(
     GoRoute(
       path: '/',
       builder: (context, state) => const SplashScreen(),
-    ),
-    GoRoute(
-      path: '/auth',
-      builder: (context, state) => const AuthScreen(),
-    ),
-    GoRoute(
-      path: '/profile-setup',
-      builder: (context, state) => const ProfileSetupScreen(),
     ),
   ],
 );

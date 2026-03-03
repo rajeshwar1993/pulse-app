@@ -57,4 +57,10 @@ class SupabaseConfig {
     if (!dotenv.isInitialized) return _defaultWebViewUrl;
     return dotenv.env['WEBVIEW_URL'] ?? _defaultWebViewUrl;
   }
+
+  /// Get the base URL (scheme + host + port) for WebView navigation
+  static String get webViewBaseUrl {
+    final uri = Uri.parse(webViewUrl);
+    return '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+  }
 }
