@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config/supabase_config.dart';
@@ -351,15 +352,89 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
       final accessToken = payload['accessToken'] as String?;
       final refreshToken = payload['refreshToken'] as String?;
 
-      if (accessToken != null && refreshToken != null) {
-        debugPrint('Syncing auth session from WebView to Flutter');
-        await SupabaseConfig.client.auth.setSession(
-          accessToken,
-        );
-        debugPrint('Session synced successfully');
+      if (accessToken == null || refreshToken == null) return;
+
+      debugPrint('Syncing auth session from WebView to Flutter');
+
+      // Try the SDK approach first (exchanges refresh token via network call)
+      try {
+        await SupabaseConfig.client.auth.setSession(refreshToken);
+        debugPrint('Session synced via SDK setSession');
+        return;
+      } catch (e) {
+        debugPrint('SDK setSession failed: $e — using manual persistence');
       }
+
+      // Fallback: persist session directly to SharedPreferences.
+      // This ensures the session survives app kills even when
+      // setSession() fails (network error, token race, etc.).
+      // On cold start, supabase_flutter reads this and restores the session.
+      await _persistSessionManually(accessToken, refreshToken, payload);
     } catch (e) {
       debugPrint('Error syncing auth session: $e');
+    }
+  }
+
+  /// Persist session data directly to SharedPreferences as a fallback.
+  /// Uses the same key format that supabase_flutter uses internally.
+  Future<void> _persistSessionManually(
+    String accessToken,
+    String refreshToken,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      // Decode JWT to extract user info (no verification, base64 only)
+      final jwtPayload = _decodeJwtPayload(accessToken);
+      if (jwtPayload['sub'] == null) {
+        debugPrint('Cannot persist session: JWT missing sub claim');
+        return;
+      }
+
+      // Construct session JSON matching Session.toJson() format
+      final sessionData = {
+        'access_token': accessToken,
+        'refresh_token': refreshToken,
+        'expires_at': jwtPayload['exp'],
+        'expires_in': payload['expiresIn'] ?? 3600,
+        'token_type': 'bearer',
+        'user': {
+          'id': jwtPayload['sub'],
+          'email': jwtPayload['email'],
+          'aud': jwtPayload['aud'] ?? 'authenticated',
+          'role': jwtPayload['role'],
+          'app_metadata': jwtPayload['app_metadata'] ?? {},
+          'user_metadata': jwtPayload['user_metadata'] ?? {},
+          'created_at': '',
+        },
+      };
+
+      // Wait for any signedOut events from the failed setSession() to be
+      // processed (the SDK removes persisted sessions on auth failure)
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // Write using the same key supabase_flutter uses
+      final projectRef = _getProjectRef(SupabaseConfig.supabaseUrl);
+      final persistKey = 'sb-$projectRef-auth-token';
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(persistKey, jsonEncode(sessionData));
+
+      debugPrint('Session persisted manually for cold-start recovery');
+    } catch (e) {
+      debugPrint('Manual session persistence failed: $e');
+    }
+  }
+
+  /// Decode a JWT payload without signature verification.
+  Map<String, dynamic> _decodeJwtPayload(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return {};
+      final normalized = base64Url.normalize(parts[1]);
+      final decoded = utf8.decode(base64Url.decode(normalized));
+      return jsonDecode(decoded) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('JWT decode error: $e');
+      return {};
     }
   }
 
