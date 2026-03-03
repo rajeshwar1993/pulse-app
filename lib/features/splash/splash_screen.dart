@@ -8,6 +8,7 @@ import '../../core/providers/locale_provider.dart';
 import '../../core/services/locale_service.dart';
 import '../../core/services/profile_service.dart';
 import '../../core/services/pulse_service.dart';
+import '../../core/services/wisdom_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../webview/pulse_webview.dart';
 
@@ -36,6 +37,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   bool _needsPulse = false;
   String _targetUrl = '';
   Timer? _timeout;
+
+  // Wisdom phrase state
+  String? _wisdomText;
+  bool _wisdomVisible = false;
 
   /// Key for accessing PulseWebViewState to call navigateTo
   final _webViewKey = GlobalKey<PulseWebViewState>();
@@ -181,7 +186,34 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     // Execute pulse in background
     _executePulse();
 
+    // Fetch and show wisdom phrase
+    _fetchAndShowWisdom();
+
     // Note: WebView is already pre-warming in the widget tree (see build method)
+  }
+
+  Future<void> _fetchAndShowWisdom() async {
+    try {
+      final wisdomService = ref.read(wisdomServiceProvider);
+      final phrases = await wisdomService.getWisdomPhrases();
+      final phrase = wisdomService.getRandomPhrase(phrases);
+
+      if (phrase == null || !mounted) return;
+
+      setState(() {
+        _wisdomText = phrase;
+      });
+
+      // Fade in after 1.5s delay for visual rhythm
+      await Future.delayed(const Duration(milliseconds: 1500));
+      if (!mounted) return;
+
+      setState(() {
+        _wisdomVisible = true;
+      });
+    } catch (e) {
+      debugPrint('Error fetching wisdom: $e');
+    }
   }
 
   Future<void> _executePulse() async {
@@ -288,6 +320,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                           ),
                         ),
                       ),
+                      if (_wisdomText != null)
+                        AnimatedOpacity(
+                          opacity: _wisdomVisible ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 400),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 24, left: 32, right: 32),
+                            child: Text(
+                              '"$_wisdomText"',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: AppColors.slate500,
+                                    fontStyle: FontStyle.italic,
+                                    height: 1.5,
+                                  ),
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: 24),
                       Text(
                         l10n.appTitle,

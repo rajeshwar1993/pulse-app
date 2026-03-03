@@ -8,6 +8,7 @@ import 'package:webview_flutter_platform_interface/webview_flutter_platform_inte
 import 'package:pulse_app/features/splash/splash_screen.dart';
 import 'package:pulse_app/core/theme/colors.dart';
 import 'package:pulse_app/core/services/locale_service.dart';
+import 'package:pulse_app/core/services/wisdom_service.dart';
 import 'package:pulse_app/l10n/app_localizations.dart';
 
 import '../../helpers/fake_webview_platform.dart';
@@ -41,6 +42,9 @@ void main() {
     return ProviderScope(
       overrides: [
         localeServiceProvider.overrideWithValue(LocaleService(prefs)),
+        wisdomServiceProvider.overrideWithValue(
+          WisdomService(Supabase.instance.client, prefs),
+        ),
       ],
       child: MaterialApp.router(
         localizationsDelegates: AppLocalizations.localizationsDelegates,

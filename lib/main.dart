@@ -10,6 +10,7 @@ import 'core/config/supabase_config.dart';
 import 'core/providers/locale_provider.dart';
 import 'core/services/deep_link_service.dart';
 import 'core/services/locale_service.dart';
+import 'core/services/wisdom_service.dart';
 import 'features/splash/splash_screen.dart';
 
 void main() async {
@@ -43,6 +44,9 @@ void main() async {
     ProviderScope(
       overrides: [
         localeServiceProvider.overrideWithValue(LocaleService(prefs)),
+        wisdomServiceProvider.overrideWithValue(
+          WisdomService(SupabaseConfig.client, prefs),
+        ),
       ],
       child: const PulseApp(),
     ),
