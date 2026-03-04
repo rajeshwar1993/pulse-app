@@ -290,63 +290,69 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               duration: _handoffDelay,
               child: Container(
                 color: AppColors.offWhite,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Heartbeat animation
-                      AnimatedBuilder(
-                        animation: _heartbeatController,
-                        builder: (context, child) {
-                          return Transform.scale(
-                            scale: _scaleAnimation.value,
-                            child: Opacity(
-                              opacity: _opacityAnimation.value,
-                              child: child,
+                child: Stack(
+                  children: [
+                    // Heartbeat + title (fixed center position)
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AnimatedBuilder(
+                            animation: _heartbeatController,
+                            builder: (context, child) {
+                              return Transform.scale(
+                                scale: _scaleAnimation.value,
+                                child: Opacity(
+                                  opacity: _opacityAnimation.value,
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: Container(
+                              width: 120,
+                              height: 120,
+                              decoration: const BoxDecoration(
+                                color: AppColors.teal,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.favorite,
+                                size: 60,
+                                color: Colors.white,
+                              ),
                             ),
-                          );
-                        },
-                        child: Container(
-                          width: 120,
-                          height: 120,
-                          decoration: const BoxDecoration(
-                            color: AppColors.teal,
-                            shape: BoxShape.circle,
                           ),
-                          child: const Icon(
-                            Icons.favorite,
-                            size: 60,
-                            color: Colors.white,
+                          const SizedBox(height: 24),
+                          Text(
+                            l10n.appTitle,
+                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                  color: AppColors.teal,
+                                  fontWeight: FontWeight.bold,
+                                ),
                           ),
+                        ],
+                      ),
+                    ),
+                    // Wisdom quote (positioned below center, doesn't affect layout above)
+                    Positioned(
+                      left: 32,
+                      right: 32,
+                      bottom: MediaQuery.of(context).size.height * 0.2,
+                      child: AnimatedOpacity(
+                        opacity: _wisdomVisible ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 400),
+                        child: Text(
+                          _wisdomText ?? '',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: AppColors.slate500,
+                                fontStyle: FontStyle.italic,
+                                height: 1.5,
+                              ),
                         ),
                       ),
-                      if (_wisdomText != null)
-                        AnimatedOpacity(
-                          opacity: _wisdomVisible ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 400),
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 24, left: 32, right: 32),
-                            child: Text(
-                              '"$_wisdomText"',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: AppColors.slate500,
-                                    fontStyle: FontStyle.italic,
-                                    height: 1.5,
-                                  ),
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 24),
-                      Text(
-                        l10n.appTitle,
-                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                              color: AppColors.teal,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
