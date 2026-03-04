@@ -50,17 +50,11 @@ class SupabaseConfig {
     return key;
   }
 
-  static const _defaultWebViewUrl = 'http://localhost:3000/appview/dashboard';
-
-  /// Get the WebView URL for the Next.js dashboard
-  static String get webViewUrl {
-    if (!dotenv.isInitialized) return _defaultWebViewUrl;
-    return dotenv.env['WEBVIEW_URL'] ?? _defaultWebViewUrl;
-  }
+  static const _defaultWebViewBaseUrl = 'http://localhost:3000';
 
   /// Get the base URL (scheme + host + port) for WebView navigation
   static String get webViewBaseUrl {
-    final uri = Uri.parse(webViewUrl);
-    return '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+    if (!dotenv.isInitialized) return _defaultWebViewBaseUrl;
+    return dotenv.env['WEBVIEW_BASE_URL'] ?? _defaultWebViewBaseUrl;
   }
 }
