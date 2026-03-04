@@ -1,4 +1,6 @@
 import 'dart:ui';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,9 +12,11 @@ import 'core/config/supabase_config.dart';
 import 'core/providers/locale_provider.dart';
 import 'core/services/deep_link_service.dart';
 import 'core/services/locale_service.dart';
+import 'core/services/notification_service.dart';
 import 'core/services/pulse_service.dart';
 import 'core/services/wisdom_service.dart';
 import 'features/splash/splash_screen.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +36,10 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: '.env');
 
+  // Initialize Firebase (before Supabase)
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
   // Initialize Supabase
   await SupabaseConfig.initialize();
 
@@ -50,6 +58,9 @@ void main() async {
         ),
         pulseServiceProvider.overrideWithValue(
           PulseService(SupabaseConfig.client, prefs),
+        ),
+        notificationServiceProvider.overrideWithValue(
+          NotificationService(SupabaseConfig.client, prefs),
         ),
       ],
       child: const PulseApp(),

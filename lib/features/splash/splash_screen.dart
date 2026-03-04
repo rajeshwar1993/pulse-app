@@ -7,6 +7,7 @@ import '../../core/config/supabase_config.dart';
 import '../../core/providers/locale_provider.dart';
 import '../../core/services/locale_service.dart';
 import '../../core/services/profile_service.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/services/pulse_service.dart';
 import '../../core/services/wisdom_service.dart';
 import '../../l10n/app_localizations.dart';
@@ -189,6 +190,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     // Fetch and show wisdom phrase
     _fetchAndShowWisdom();
 
+    // Initialize notifications (fire-and-forget, non-blocking)
+    _initializeNotifications();
+
     // Note: WebView is already pre-warming in the widget tree (see build method)
   }
 
@@ -213,6 +217,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       });
     } catch (e) {
       debugPrint('Error fetching wisdom: $e');
+    }
+  }
+
+  Future<void> _initializeNotifications() async {
+    try {
+      final notificationService = ref.read(notificationServiceProvider);
+      await notificationService.initialize();
+      if (!notificationService.hasRequestedPermission) {
+        await notificationService.requestPermission();
+      }
+      await notificationService.registerToken();
+    } catch (e) {
+      debugPrint('Error initializing notifications: $e');
     }
   }
 

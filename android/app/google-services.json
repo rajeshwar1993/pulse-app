@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "696556381830",
+    "project_id": "pulse-stg-qa",
+    "storage_bucket": "pulse-stg-qa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:696556381830:android:99b989136ad24d478f1307",
+        "android_client_info": {
+          "package_name": "com.pulse.pulse_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPC_m9NykexpusI1R5hFoNLqWp0H-A9BU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

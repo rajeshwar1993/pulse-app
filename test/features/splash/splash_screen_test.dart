@@ -2,26 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mockito/mockito.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 import 'package:pulse_app/features/splash/splash_screen.dart';
 import 'package:pulse_app/core/theme/colors.dart';
 import 'package:pulse_app/core/services/locale_service.dart';
+import 'package:pulse_app/core/services/notification_service.dart';
 import 'package:pulse_app/core/services/pulse_service.dart';
 import 'package:pulse_app/core/services/wisdom_service.dart';
 import 'package:pulse_app/l10n/app_localizations.dart';
 
+import '../../core/services/notification_service_test.mocks.dart';
 import '../../helpers/fake_webview_platform.dart';
 
 void main() {
   late SharedPreferences prefs;
+  late MockFirebaseMessaging mockMessaging;
 
   setUpAll(() async {
     WebViewPlatform.instance = FakeWebViewPlatform();
 
     SharedPreferences.setMockInitialValues({});
     prefs = await SharedPreferences.getInstance();
+
+    mockMessaging = MockFirebaseMessaging();
+    when(mockMessaging.onTokenRefresh).thenAnswer(
+      (_) => const Stream<String>.empty(),
+    );
 
     await Supabase.initialize(
       url: 'https://test.supabase.co',
@@ -48,6 +57,9 @@ void main() {
         ),
         pulseServiceProvider.overrideWithValue(
           PulseService(Supabase.instance.client, prefs),
+        ),
+        notificationServiceProvider.overrideWithValue(
+          NotificationService(Supabase.instance.client, prefs, mockMessaging),
         ),
       ],
       child: MaterialApp.router(
