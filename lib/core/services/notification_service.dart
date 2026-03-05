@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/error_reporter.dart';
 
 /// Top-level background message handler.
 ///
@@ -69,7 +70,7 @@ class NotificationService {
         _upsertToken(newToken);
       });
     } catch (e) {
-      debugPrint('NotificationService.initialize: $e');
+      ErrorReporter.captureException(e, reason: 'NotificationService.initialize');
     }
   }
 
@@ -91,7 +92,7 @@ class NotificationService {
       debugPrint('Notification permission: ${settings.authorizationStatus}');
       return granted;
     } catch (e) {
-      debugPrint('NotificationService.requestPermission: $e');
+      ErrorReporter.captureException(e, reason: 'NotificationService.requestPermission');
       return false;
     }
   }
@@ -125,7 +126,7 @@ class NotificationService {
       await _upsertToken(token);
       return true;
     } catch (e) {
-      debugPrint('NotificationService.registerToken: $e');
+      ErrorReporter.captureException(e, reason: 'NotificationService.registerToken');
       return false;
     }
   }
@@ -150,7 +151,7 @@ class NotificationService {
       debugPrint('NotificationService.unregisterToken: token removed');
       return true;
     } catch (e) {
-      debugPrint('NotificationService.unregisterToken: $e');
+      ErrorReporter.captureException(e, reason: 'NotificationService.unregisterToken');
       return false;
     }
   }

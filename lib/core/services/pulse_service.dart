@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/error_reporter.dart';
 
 /// Service for managing daily pulse check-ins
 ///
@@ -67,7 +68,7 @@ class PulseService {
       if (response == null) return null;
       return response['id'] as String?;
     } catch (e) {
-      debugPrint('Error checking pulse status: $e');
+      ErrorReporter.captureException(e, reason: 'PulseService.getTodayPulseId');
       return null;
     }
   }
@@ -93,7 +94,7 @@ class PulseService {
 
       return true;
     } catch (e) {
-      debugPrint('Error refreshing pulse: $e');
+      ErrorReporter.captureException(e, reason: 'PulseService.refreshPulse');
       return false;
     }
   }
@@ -115,7 +116,7 @@ class PulseService {
 
       return response['id'] as String?;
     } catch (e) {
-      debugPrint('Error sending pulse: $e');
+      ErrorReporter.captureException(e, reason: 'PulseService.sendPulse');
       return null;
     }
   }
@@ -166,7 +167,7 @@ class PulseService {
 
       return success;
     } catch (e) {
-      debugPrint('Error in checkAndPulse: $e');
+      ErrorReporter.captureException(e, reason: 'PulseService.checkAndPulse');
       return false;
     }
   }

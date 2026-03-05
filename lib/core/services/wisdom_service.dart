@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/error_reporter.dart';
 
 /// Service for fetching and caching wisdom phrases from Supabase.
 ///
@@ -43,7 +43,7 @@ class WisdomService {
 
       return phrases;
     } catch (e) {
-      debugPrint('WisdomService.getWisdomPhrases: $e');
+      ErrorReporter.captureException(e, reason: 'WisdomService.getWisdomPhrases');
       return _getCachedPhrases();
     }
   }
@@ -78,7 +78,7 @@ class WisdomService {
       final decoded = jsonDecode(cached) as List<dynamic>;
       return decoded.map((e) => e as String).toList();
     } catch (e) {
-      debugPrint('WisdomService._getCachedPhrases: $e');
+      ErrorReporter.captureException(e, reason: 'WisdomService._getCachedPhrases');
       return [];
     }
   }

@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/config/observability_config.dart';
 import '../../core/theme/colors.dart';
 import '../../core/config/supabase_config.dart';
 import '../../core/providers/locale_provider.dart';
@@ -10,6 +13,7 @@ import '../../core/services/profile_service.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/services/pulse_service.dart';
 import '../../core/services/wisdom_service.dart';
+import '../../core/utils/error_reporter.dart';
 import '../../l10n/app_localizations.dart';
 import '../webview/pulse_webview.dart';
 
@@ -45,6 +49,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   /// Key for accessing PulseWebViewState to call navigateTo
   final _webViewKey = GlobalKey<PulseWebViewState>();
+
+  /// Sentry transaction for measuring app startup duration
+  ISentrySpan? _startupTransaction;
 
   @override
   void initState() {
@@ -114,6 +121,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _checkAuthAndPulse() async {
+    // Start Sentry startup transaction
+    if (ObservabilityConfig.hasSentry) {
+      _startupTransaction = Sentry.startTransaction(
+        'app.startup',
+        'app.lifecycle',
+        bindToScope: true,
+      );
+    }
+
     // Initialize locale from SharedPreferences first (instant, offline-capable)
     final localeService = ref.read(localeServiceProvider);
     final storedLocale = localeService.getStoredLocale();
@@ -128,6 +144,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       await Future.delayed(_unauthDelay);
       if (!mounted) return;
 
+      // Track app launch (unauthenticated)
+      if (ObservabilityConfig.hasPosthog) {
+        Posthog().capture(
+          eventName: 'app_launched',
+          properties: {'authenticated': false, 'has_profile': false},
+        );
+      }
+
       setState(() {
         _needsPulse = false;
         _pulseCompleted = true; // No pulse needed, mark as done
@@ -136,6 +160,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       // WebView ready signal from auth page will trigger handoff
       return;
     }
+
+    // Set user identity across all observability backends
+    await ErrorReporter.setUser(id: user.id, email: user.email);
 
     // Sync locale from Supabase profile (server takes priority)
     final profileLocale = await localeService.getProfileLocale();
@@ -155,12 +182,27 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       await Future.delayed(_unauthDelay);
       if (!mounted) return;
 
+      if (ObservabilityConfig.hasPosthog) {
+        Posthog().capture(
+          eventName: 'app_launched',
+          properties: {'authenticated': true, 'has_profile': false},
+        );
+      }
+
       setState(() {
         _needsPulse = false;
         _pulseCompleted = true; // No pulse needed, mark as done
         _targetUrl = '$baseUrl/appview/profile-setup';
       });
       return;
+    }
+
+    // Track app launch (authenticated with profile)
+    if (ObservabilityConfig.hasPosthog) {
+      Posthog().capture(
+        eventName: 'app_launched',
+        properties: {'authenticated': true, 'has_profile': true},
+      );
     }
 
     // User is authenticated and has profile
@@ -197,6 +239,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _fetchAndShowWisdom() async {
+    final span = _startupTransaction?.startChild('fetch_wisdom');
     try {
       final wisdomService = ref.read(wisdomServiceProvider);
       final phrases = await wisdomService.getWisdomPhrases();
@@ -215,8 +258,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       setState(() {
         _wisdomVisible = true;
       });
-    } catch (e) {
-      debugPrint('Error fetching wisdom: $e');
+    } catch (e, stackTrace) {
+      await ErrorReporter.captureException(e,
+          stackTrace: stackTrace, reason: 'SplashScreen._fetchAndShowWisdom');
+    } finally {
+      await span?.finish();
     }
   }
 
@@ -228,24 +274,36 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         await notificationService.requestPermission();
       }
       await notificationService.registerToken();
-    } catch (e) {
-      debugPrint('Error initializing notifications: $e');
+    } catch (e, stackTrace) {
+      await ErrorReporter.captureException(e,
+          stackTrace: stackTrace,
+          reason: 'SplashScreen._initializeNotifications');
     }
   }
 
   Future<void> _executePulse() async {
+    final span = _startupTransaction?.startChild('auto_pulse');
     try {
       final pulseService = ref.read(pulseServiceProvider);
       final pulsed = await pulseService.checkAndPulse();
+
+      if (ObservabilityConfig.hasPosthog) {
+        Posthog().capture(
+          eventName: 'auto_pulse_completed',
+          properties: {'success': pulsed},
+        );
+      }
 
       if (pulsed) {
         debugPrint('Pulse sent successfully');
       } else {
         debugPrint('User already pulsed today or pulse failed');
       }
-    } catch (e) {
-      debugPrint('Error sending pulse: $e');
+    } catch (e, stackTrace) {
+      await ErrorReporter.captureException(e,
+          stackTrace: stackTrace, reason: 'SplashScreen._executePulse');
     } finally {
+      await span?.finish();
       setState(() {
         _pulseCompleted = true;
       });
@@ -256,6 +314,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void _onWebViewReady() {
     debugPrint('WebView ready signal received');
     _timeout?.cancel();
+
+    if (ObservabilityConfig.hasPosthog) {
+      Posthog().capture(eventName: 'webview_ready');
+    }
+
     setState(() {
       _webViewReady = true;
     });
@@ -268,6 +331,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     if (pulseReady && _webViewReady && !_shouldShowWebView) {
       debugPrint('Both tasks complete - initiating handoff');
+
+      // Finish startup transaction
+      _startupTransaction?.finish();
+      _startupTransaction = null;
 
       // Stop the heartbeat animation
       _heartbeatController.stop();

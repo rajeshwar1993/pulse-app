@@ -2,21 +2,26 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/config/observability_config.dart';
 import '../../core/config/supabase_config.dart';
 import '../../core/providers/locale_provider.dart';
+import '../../core/providers/session_provider.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/locale_service.dart';
 import '../../core/services/profile_service.dart';
+import '../../core/utils/error_reporter.dart';
 import '../../l10n/app_localizations.dart';
 
 /// WebView wrapper for loading Next.js pages (auth, dashboard, etc.)
 ///
 /// This widget wraps the webview_flutter package and provides:
 /// - Loading of any appview URL (auth, dashboard, profile-setup)
-/// - JavaScript channel for Flutter ↔ WebView communication
+/// - JavaScript channel for Flutter <-> WebView communication
 /// - Handling of ready signal, auth messages, and locale changes
 class PulseWebView extends ConsumerStatefulWidget {
   final VoidCallback? onReady;
@@ -106,10 +111,15 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
         }));
       ''');
 
+      if (ObservabilityConfig.hasPosthog) {
+        Posthog().capture(eventName: 'google_sign_in_completed');
+      }
+
       // Navigate WebView to the target page
       navigateTo(redirectTo);
-    } catch (e) {
-      debugPrint('Error handling post-Google auth: $e');
+    } catch (e, stackTrace) {
+      await ErrorReporter.captureException(e,
+          stackTrace: stackTrace, reason: 'PulseWebView._handlePostGoogleAuth');
       // Dispatch error event to web
       try {
         await _controller.runJavaScript('''
@@ -136,12 +146,22 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
             }
           },
           onPageStarted: (String url) {
+            Sentry.addBreadcrumb(Breadcrumb(
+              message: 'WebView page started',
+              category: 'webview.navigation',
+              data: {'url': url},
+            ));
             setState(() {
               _isLoading = true;
               _hasError = false;
             });
           },
           onPageFinished: (String url) async {
+            Sentry.addBreadcrumb(Breadcrumb(
+              message: 'WebView page finished',
+              category: 'webview.navigation',
+              data: {'url': url},
+            ));
             setState(() {
               _isLoading = false;
             });
@@ -149,10 +169,22 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
             // Inject Supabase session after page loads
             await _injectSupabaseSession();
 
+            // Inject session ID for cross-platform correlation
+            await _injectSessionId();
+
             // Send current locale to WebView
             await _sendLocaleToWebView();
           },
           onWebResourceError: (WebResourceError error) {
+            Sentry.captureException(
+              Exception('WebView resource error: ${error.description}'),
+              stackTrace: StackTrace.current,
+              hint: Hint.withMap({
+                'errorCode': error.errorCode.toString(),
+                'errorType': error.errorType?.name ?? 'unknown',
+                'url': error.url ?? 'unknown',
+              }),
+            );
             setState(() {
               _hasError = true;
               _errorMessage = error.description;
@@ -169,6 +201,28 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
         },
       )
       ..loadRequest(Uri.parse(widget.initialUrl));
+  }
+
+  /// Inject session correlation ID into the WebView via cookie + CustomEvent.
+  Future<void> _injectSessionId() async {
+    try {
+      final sessionId = ref.read(pulseSessionIdProvider);
+      if (sessionId.isEmpty) return;
+
+      await _controller.runJavaScript('''
+        (function() {
+          // Cookie channel
+          document.cookie = 'pulse-session-id=$sessionId; path=/; max-age=86400; SameSite=Lax';
+
+          // CustomEvent channel
+          window.dispatchEvent(new CustomEvent('flutter-session-init', {
+            detail: { pulseSessionId: '$sessionId' }
+          }));
+        })();
+      ''');
+    } catch (e) {
+      debugPrint('Error injecting session ID: $e');
+    }
   }
 
   /// Inject Supabase session from Flutter into WebView
@@ -209,8 +263,6 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
       ''';
 
       // Inject session into localStorage
-      // Supabase stores session in localStorage with key format:
-      // sb-<project-ref>-auth-token
       final supabaseUrl = SupabaseConfig.supabaseUrl;
       final projectRef = _getProjectRef(supabaseUrl);
       final storageKey = 'sb-$projectRef-auth-token';
@@ -255,14 +307,22 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
         _hasInjectedSession = true;
         await _controller.reload();
       }
-    } catch (e) {
-      debugPrint('Error injecting Supabase session: $e');
+    } catch (e, stackTrace) {
+      await ErrorReporter.captureException(e,
+          stackTrace: stackTrace,
+          reason: 'PulseWebView._injectSupabaseSession');
     }
   }
 
   /// Handle messages from WebView using JSON parsing
   void _handleMessage(String message) {
     try {
+      Sentry.addBreadcrumb(Breadcrumb(
+        message: 'FlutterBridge message received',
+        category: 'webview.bridge',
+        data: {'raw': message.length > 200 ? message.substring(0, 200) : message},
+      ));
+
       if (message.startsWith('{')) {
         final decoded = jsonDecode(message) as Map<String, dynamic>;
         final type = decoded['type'] as String?;
@@ -283,8 +343,9 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
         // Simple string message fallback
         _handleReadySignal();
       }
-    } catch (e) {
-      debugPrint('Error handling WebView message: $e');
+    } catch (e, stackTrace) {
+      ErrorReporter.captureException(e,
+          stackTrace: stackTrace, reason: 'PulseWebView._handleMessage');
     }
   }
 
@@ -310,13 +371,19 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
 
         debugPrint('Locale changed from WebView: $localeCode');
       }
-    } catch (e) {
-      debugPrint('Error handling locale change: $e');
+    } catch (e, stackTrace) {
+      ErrorReporter.captureException(e,
+          stackTrace: stackTrace,
+          reason: 'PulseWebView._handleLocaleChanged');
     }
   }
 
   /// Handle GOOGLE_SIGN_IN_REQUESTED — delegate OAuth to native
   Future<void> _handleGoogleSignInRequested() async {
+    if (ObservabilityConfig.hasPosthog) {
+      Posthog().capture(eventName: 'google_sign_in_started');
+    }
+
     try {
       debugPrint('Google sign-in requested from WebView');
       final authService = ref.read(authServiceProvider);
@@ -331,8 +398,10 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
         ''');
       }
       // If success, the auth state listener will handle navigation
-    } catch (e) {
-      debugPrint('Error handling Google sign-in: $e');
+    } catch (e, stackTrace) {
+      await ErrorReporter.captureException(e,
+          stackTrace: stackTrace,
+          reason: 'PulseWebView._handleGoogleSignInRequested');
       try {
         await _controller.runJavaScript('''
           window.dispatchEvent(new CustomEvent('flutter-google-auth-error', {
@@ -344,13 +413,11 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
   }
 
   /// Handle AUTH_COMPLETED — persist session for cold-start recovery.
-  ///
-  /// We persist directly to SharedPreferences instead of calling
-  /// setSession(), because setSession() emits tokenRefreshed which
-  /// triggers _injectSupabaseSession() → _controller.reload(), disrupting
-  /// the web-side navigation already in progress after login.
-  /// The WebView already has its own session from signInWithPassword().
   Future<void> _handleAuthCompleted(Map<String, dynamic> decoded) async {
+    if (ObservabilityConfig.hasPosthog) {
+      Posthog().capture(eventName: 'auth_completed');
+    }
+
     try {
       final payload = decoded['payload'] as Map<String, dynamic>?;
       if (payload == null) return;
@@ -362,13 +429,14 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
 
       debugPrint('Persisting auth session for cold-start recovery');
       await _persistSessionManually(accessToken, refreshToken, payload);
-    } catch (e) {
-      debugPrint('Error persisting auth session: $e');
+    } catch (e, stackTrace) {
+      await ErrorReporter.captureException(e,
+          stackTrace: stackTrace,
+          reason: 'PulseWebView._handleAuthCompleted');
     }
   }
 
   /// Persist session data directly to SharedPreferences as a fallback.
-  /// Uses the same key format that supabase_flutter uses internally.
   Future<void> _persistSessionManually(
     String accessToken,
     String refreshToken,
@@ -407,8 +475,10 @@ class PulseWebViewState extends ConsumerState<PulseWebView> {
       await prefs.setString(persistKey, jsonEncode(sessionData));
 
       debugPrint('Session persisted manually for cold-start recovery');
-    } catch (e) {
-      debugPrint('Manual session persistence failed: $e');
+    } catch (e, stackTrace) {
+      await ErrorReporter.captureException(e,
+          stackTrace: stackTrace,
+          reason: 'PulseWebView._persistSessionManually');
     }
   }
 

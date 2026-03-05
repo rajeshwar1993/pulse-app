@@ -46,6 +46,12 @@ dependencies:
   firebase_core: ^3.12.1
   firebase_messaging: ^15.2.4
 
+  # Crash Reporting & Observability
+  sentry_flutter: ^8.13.0
+  firebase_crashlytics: ^4.3.3
+  posthog_flutter: ^5.4.0
+  uuid: ^4.5.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

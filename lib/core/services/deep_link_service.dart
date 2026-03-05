@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import '../config/supabase_config.dart';
+import '../utils/error_reporter.dart';
 import 'connection_service.dart';
 
 class DeepLinkService {
@@ -26,7 +27,7 @@ class DeepLinkService {
         await _handleDeepLink(initialUri);
       }
     } catch (e) {
-      debugPrint('Error getting initial link: $e');
+      ErrorReporter.captureException(e, reason: 'DeepLinkService.initialize');
     }
 
     // Listen for deep links while app is running
@@ -35,7 +36,7 @@ class DeepLinkService {
         await _handleDeepLink(uri);
       },
       onError: (err) {
-        debugPrint('Deep link error: $err');
+        ErrorReporter.captureException(err, reason: 'DeepLinkService.uriLinkStream');
       },
     );
   }
@@ -78,7 +79,7 @@ class DeepLinkService {
       // The auth state listener in SplashScreen will handle navigation
       // once the SDK completes the authentication
     } catch (e) {
-      debugPrint('Error handling auth callback: $e');
+      ErrorReporter.captureException(e, reason: 'DeepLinkService._handleAuthCallback');
     }
   }
 
@@ -100,7 +101,7 @@ class DeepLinkService {
         // Show success message and navigate to connections
         // This will be handled in the UI layer via callback
       } catch (e) {
-        debugPrint('Failed to accept invite: $e');
+        ErrorReporter.captureException(e, reason: 'DeepLinkService._handleInviteDeepLink');
         // Show error message in UI
       }
     }
@@ -117,7 +118,7 @@ class DeepLinkService {
       _pendingInviteCode = null;
       return true;
     } catch (e) {
-      debugPrint('Failed to process pending invite: $e');
+      ErrorReporter.captureException(e, reason: 'DeepLinkService.processPendingInvite');
       _pendingInviteCode = null;
       return false;
     }

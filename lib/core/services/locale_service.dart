@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/supabase_config.dart';
+import '../utils/error_reporter.dart';
 
 class LocaleService {
   static const _storageKey = 'pulse_locale';
@@ -34,7 +35,7 @@ class LocaleService {
           .update({'language_preference': locale.languageCode})
           .eq('id', user.id);
     } catch (e) {
-      debugPrint('Error syncing locale to profile: $e');
+      ErrorReporter.captureException(e, reason: 'LocaleService.syncToProfile');
     }
   }
 
@@ -53,7 +54,7 @@ class LocaleService {
       final lang = response['language_preference'] as String?;
       return lang != null && lang.isNotEmpty ? Locale(lang) : null;
     } catch (e) {
-      debugPrint('Error fetching profile locale: $e');
+      ErrorReporter.captureException(e, reason: 'LocaleService.getProfileLocale');
       return null;
     }
   }
