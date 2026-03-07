@@ -35,6 +35,10 @@ check:
 	flutter analyze --no-pub
 	flutter test --no-pub
 
+# Display current version from pubspec.yaml
+version:
+	@grep '^version:' pubspec.yaml | sed 's/version: *//'
+
 .PHONY: build-staging-android build-staging-ios build-production-android build-production-ios \
         distribute-staging-android distribute-staging-ios distribute-production-android distribute-production-ios \
-        check
+        check version

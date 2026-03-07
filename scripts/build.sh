@@ -4,15 +4,20 @@ set -euo pipefail
 # ─────────────────────────────────────────────────────────
 # Pulse App — Build & Distribution Script
 #
-# Usage: ./scripts/build.sh <environment> <platform> [--distribute]
+# Usage: ./scripts/build.sh <environment> <platform> [--distribute] [--patch|--minor|--major]
 #
 #   environment:  staging | production
 #   platform:     android | ios
 #   --distribute: Upload to Firebase App Distribution
+#   --patch:      Bump patch version (production only)
+#   --minor:      Bump minor version (production only, default)
+#   --major:      Bump major version (production only)
 #
 # Examples:
 #   ./scripts/build.sh staging android
 #   ./scripts/build.sh production ios --distribute
+#   ./scripts/build.sh production android --distribute --patch
+#   ./scripts/build.sh production android --distribute --major
 # ─────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,16 +37,21 @@ error() { echo -e "${RED}[pulse]${NC} $1"; }
 
 usage() {
   cat <<EOF
-Usage: ./scripts/build.sh <environment> <platform> [--distribute]
+Usage: ./scripts/build.sh <environment> <platform> [--distribute] [--patch|--minor|--major]
 
   environment:  staging | production
   platform:     android | ios
   --distribute: Upload to Firebase App Distribution after build
+  --patch:      Bump patch version (production only)
+  --minor:      Bump minor version (production only, default)
+  --major:      Bump major version (production only)
 
 Examples:
   ./scripts/build.sh staging android
   ./scripts/build.sh staging ios --distribute
   ./scripts/build.sh production android --distribute
+  ./scripts/build.sh production android --distribute --patch
+  ./scripts/build.sh production android --distribute --major
 EOF
   exit 1
 }
@@ -56,11 +66,21 @@ fi
 
 ENVIRONMENT="$1"
 PLATFORM="$2"
-DISTRIBUTE=false
+shift 2
 
-if [[ $# -ge 3 && "$3" == "--distribute" ]]; then
-  DISTRIBUTE=true
-fi
+DISTRIBUTE=false
+BUMP_LEVEL="minor"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --distribute) DISTRIBUTE=true ;;
+    --patch)      BUMP_LEVEL="patch" ;;
+    --minor)      BUMP_LEVEL="minor" ;;
+    --major)      BUMP_LEVEL="major" ;;
+    *)            error "Unknown flag: $1"; usage ;;
+  esac
+  shift
+done
 
 # Validate environment
 if [[ "$ENVIRONMENT" != "staging" && "$ENVIRONMENT" != "production" ]]; then
@@ -72,6 +92,58 @@ fi
 if [[ "$PLATFORM" != "android" && "$PLATFORM" != "ios" ]]; then
   error "Invalid platform: $PLATFORM (must be 'android' or 'ios')"
   exit 1
+fi
+
+# ─────────────────────────────────────────────────────────
+# Version bump (production only)
+# ─────────────────────────────────────────────────────────
+
+PUBSPEC="$PROJECT_DIR/pubspec.yaml"
+
+bump_version() {
+  local current
+  current=$(grep '^version:' "$PUBSPEC" | sed 's/version: *//')
+
+  # Parse X.Y.Z+B
+  local semver="${current%%+*}"
+  local build="${current##*+}"
+
+  local major minor patch
+  IFS='.' read -r major minor patch <<< "$semver"
+
+  case "$BUMP_LEVEL" in
+    major)
+      major=$((major + 1))
+      minor=0
+      patch=0
+      ;;
+    minor)
+      minor=$((minor + 1))
+      patch=0
+      ;;
+    patch)
+      patch=$((patch + 1))
+      ;;
+  esac
+
+  build=$((build + 1))
+
+  local new_version="${major}.${minor}.${patch}+${build}"
+  sed -i '' "s/^version: .*/version: ${new_version}/" "$PUBSPEC"
+
+  ok "Version bumped: $current → $new_version ($BUMP_LEVEL)"
+  VERSION_STRING="${major}.${minor}.${patch}"
+  BUILD_NUMBER="$build"
+}
+
+if [[ "$ENVIRONMENT" == "production" ]]; then
+  bump_version
+else
+  # Read current version for display (no bump)
+  current=$(grep '^version:' "$PUBSPEC" | sed 's/version: *//')
+  VERSION_STRING="${current%%+*}"
+  BUILD_NUMBER="${current##*+}"
+  log "Staging build — skipping version bump (current: $current)"
 fi
 
 # ─────────────────────────────────────────────────────────
@@ -204,7 +276,7 @@ if [[ "$DISTRIBUTE" == true ]]; then
   GIT_SHA=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
   GIT_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
   BUILD_TIME=$(date '+%Y-%m-%d %H:%M')
-  RELEASE_NOTES="$ENVIRONMENT build
+  RELEASE_NOTES="$ENVIRONMENT build — v${VERSION_STRING}+${BUILD_NUMBER}
 Branch: $GIT_BRANCH
 Commit: $GIT_SHA
 Built: $BUILD_TIME"
@@ -233,7 +305,7 @@ fi
 # ─────────────────────────────────────────────────────────
 
 echo ""
-ok "Build pipeline complete: $ENVIRONMENT / $PLATFORM"
+ok "Build pipeline complete: $ENVIRONMENT / $PLATFORM (v${VERSION_STRING}+${BUILD_NUMBER})"
 if [[ "$DISTRIBUTE" == true ]]; then
   ok "Artifact distributed to Firebase App Distribution."
 fi
