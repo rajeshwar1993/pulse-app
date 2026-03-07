@@ -95,7 +95,50 @@ if [[ "$PLATFORM" != "android" && "$PLATFORM" != "ios" ]]; then
 fi
 
 # ─────────────────────────────────────────────────────────
-# Version bump (production only)
+# Check prerequisites
+# ─────────────────────────────────────────────────────────
+
+log "Checking prerequisites..."
+
+if ! command -v flutter &>/dev/null; then
+  error "flutter is not installed or not in PATH"
+  exit 1
+fi
+
+if [[ "$DISTRIBUTE" == true ]] && ! command -v firebase &>/dev/null; then
+  error "firebase CLI is not installed (required for --distribute)"
+  error "Install with: npm install -g firebase-tools"
+  exit 1
+fi
+
+if [[ "$PLATFORM" == "ios" ]] && ! command -v xcodebuild &>/dev/null; then
+  error "xcodebuild is not available (required for iOS builds)"
+  exit 1
+fi
+
+# Check environment file exists
+ENV_FILE="$PROJECT_DIR/.env.$ENVIRONMENT"
+if [[ ! -f "$ENV_FILE" ]]; then
+  error ".env.$ENVIRONMENT not found!"
+  echo ""
+  echo "  Create it by copying the template:"
+  echo "    cp .env.$ENVIRONMENT.example .env.$ENVIRONMENT"
+  echo "  Then fill in the actual values."
+  exit 1
+fi
+
+# Branch warning for production distribution
+if [[ "$DISTRIBUTE" == true && "$ENVIRONMENT" == "production" ]]; then
+  CURRENT_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+  if [[ "$CURRENT_BRANCH" != "main" ]]; then
+    warn "WARNING: Distributing production build from branch '$CURRENT_BRANCH' (not main)"
+    warn "Press Enter to continue or Ctrl+C to abort..."
+    read -r
+  fi
+fi
+
+# ─────────────────────────────────────────────────────────
+# Version bump (production only — after all pre-checks pass)
 # ─────────────────────────────────────────────────────────
 
 PUBSPEC="$PROJECT_DIR/pubspec.yaml"
@@ -144,49 +187,6 @@ else
   VERSION_STRING="${current%%+*}"
   BUILD_NUMBER="${current##*+}"
   log "Staging build — skipping version bump (current: $current)"
-fi
-
-# ─────────────────────────────────────────────────────────
-# Check prerequisites
-# ─────────────────────────────────────────────────────────
-
-log "Checking prerequisites..."
-
-if ! command -v flutter &>/dev/null; then
-  error "flutter is not installed or not in PATH"
-  exit 1
-fi
-
-if [[ "$DISTRIBUTE" == true ]] && ! command -v firebase &>/dev/null; then
-  error "firebase CLI is not installed (required for --distribute)"
-  error "Install with: npm install -g firebase-tools"
-  exit 1
-fi
-
-if [[ "$PLATFORM" == "ios" ]] && ! command -v xcodebuild &>/dev/null; then
-  error "xcodebuild is not available (required for iOS builds)"
-  exit 1
-fi
-
-# Check environment file exists
-ENV_FILE="$PROJECT_DIR/.env.$ENVIRONMENT"
-if [[ ! -f "$ENV_FILE" ]]; then
-  error ".env.$ENVIRONMENT not found!"
-  echo ""
-  echo "  Create it by copying the template:"
-  echo "    cp .env.$ENVIRONMENT.example .env.$ENVIRONMENT"
-  echo "  Then fill in the actual values."
-  exit 1
-fi
-
-# Branch warning for production distribution
-if [[ "$DISTRIBUTE" == true && "$ENVIRONMENT" == "production" ]]; then
-  CURRENT_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
-  if [[ "$CURRENT_BRANCH" != "main" ]]; then
-    warn "WARNING: Distributing production build from branch '$CURRENT_BRANCH' (not main)"
-    warn "Press Enter to continue or Ctrl+C to abort..."
-    read -r
-  fi
 fi
 
 # ─────────────────────────────────────────────────────────
